@@ -1,0 +1,3263 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Card Collector</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" type="image/png" href="https://i.postimg.cc/zyZ49xDN/tcg-collectiv.png' border='0' alt='tcg-collectiv'/></a>">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <link rel="icon" href="/favicon.pmg" type="image/x-icon">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c;
+            color: #e2e8f0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 2rem;
+            box-sizing: border-box;
+        }
+        
+         ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+         ::-webkit-scrollbar-track {
+            background: #2d3748;
+            border-radius: 10px;
+        }
+        
+         ::-webkit-scrollbar-thumb {
+            background: #4a5568;
+            border-radius: 10px;
+        }
+        
+         ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+        
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
+        .card-reveal-animation {
+            animation: fadeInScale 0.3s ease-out forwards;
+        }
+        
+        .chart-container {
+            width: 100%;
+            height: 300px;
+            background-color: #2d3748;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            box-sizing: border-box;
+        }
+        
+        .chart-container svg {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .line {
+            fill: none;
+            stroke-width: 2px;
+        }
+        
+        .axis path,
+        .axis line {
+            stroke: #cbd5e0;
+        }
+        
+        .axis text {
+            fill: #cbd5e0;
+            font-size: 0.75rem;
+        }
+        
+        .inventory-card-item {
+            display: flex;
+            flex-direction: column;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.15s ease-in-out;
+            cursor: pointer;
+        }
+        
+        .inventory-card-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        .revealed-card-wrapper {
+            position: relative;
+            overflow: hidden;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.3);
+            min-width: 200px;
+            min-height: 150px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            animation: fadeInScale 0.3s ease-out forwards;
+            transition: all 0.5s ease-out;
+            z-index: 0;
+        }
+        
+        .revealed-card-wrapper::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent 50%, rgba(255, 255, 255, 0.05) 50%);
+            background-size: 200% 100%;
+            animation: peel 0.8s forwards;
+            z-index: 1;
+        }
+        
+        @keyframes peel {
+            from {
+                background-position: 100% 0;
+            }
+            to {
+                background-position: 0 0;
+            }
+        }
+        
+        .quality-poor {
+            filter: grayscale(90%) sepia(50%) brightness(0.6) contrast(1.5) blur(0.5px);
+            opacity: 0.5;
+            box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.9);
+            transform: rotate(-3deg) scale(0.92);
+            border-style: dashed;
+            border-width: 1px;
+            border-color: #718096;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+        }
+        
+        .quality-fair {
+            box-shadow: 0 0 5px 1px rgba(156, 163, 175, 0.3);
+            opacity: 0.9;
+        }
+
+        .quality-good {
+            box-shadow: 0 0 8px 2px rgba(104, 211, 145, 0.4);
+        }
+        
+        .quality-excellent {
+            box-shadow: 0 0 12px 4px rgba(99, 179, 237, 0.5), inset 0 0 8px rgba(99, 179, 237, 0.3);
+        }
+        
+        .quality-mint {
+            position: relative;
+            overflow: hidden;
+            border: 2px solid rgba(255, 255, 255, 0.3); 
+            box-shadow: 0 0 15px 5px rgba(250, 204, 21, 0.6);
+        }
+        
+        .quality-mint::after {
+            content: "";
+            position: absolute;
+            inset: -50%;
+            background: linear-gradient(45deg, transparent 40%, rgba(255, 255, 255, 0.25) 50%, transparent 60%);
+            background-size: 200% 200%;
+            animation: shimmer 1s infinite linear;
+            pointer-events: none;
+            z-index: 2;
+        }
+        
+        @keyframes shimmer {
+            0% {
+                background-position: -100% -100%;
+            }
+            100% {
+                background-position: 100% 100%;
+            }
+        }
+        
+        .quality-perfect {
+            position: relative;
+            overflow: hidden;
+            transform: scale(1.00);
+            transition: transform 0.2s ease-in-out;
+            border-width: 3px;
+            border-style: solid;
+            box-shadow: 0 0 20px 8px rgba(168, 85, 247, 0.8), inset 0 0 10px rgba(168, 85, 247, 0.5);
+        }
+        
+        .quality-perfect:hover {
+            transform: scale(1.02);
+        }
+        
+        .quality-perfect::before {
+            content: "";
+            position: absolute;
+            inset: -10%;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg, #d6bcfa, #f687b3, #ecc94b, #4fd1c5, #d6bcfa);
+            animation: gem-spin 2s linear infinite;
+            filter: blur(6px);
+            opacity: 0.7;
+            z-index: -1;
+        }
+        
+        .quality-perfect .card-name,
+        .quality-perfect .card-tier-quality {
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.7), 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+        
+        @keyframes gem-spin {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        
+        .tier-epic.revealed-card-wrapper {
+            box-shadow: 0 0 30px 10px #a78bfa, inset 0 0 25px #805ad5;
+            animation: fadeInScale 0.3s ease-out forwards, epic-pulse 1.8s infinite alternate;
+        }
+        
+        @keyframes epic-pulse {
+            0% {
+                box-shadow: 0 0 30px 10px #a78bfa, inset 0 0 25px #805ad5;
+            }
+            100% {
+                box-shadow: 0 0 40px 13px #c084fc, inset 0 0 30px #a855f7;
+            }
+        }
+        
+        .tier-legendary.revealed-card-wrapper {
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 45px 15px #f6ad55, inset 0 0 35px #ed8936;
+        }
+        
+        .tier-legendary.revealed-card-wrapper::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, rgba(255, 255, 0, 0.4) 0%, transparent 70%);
+            animation: legendary-pulse 1s infinite alternate, rotate-light 5s linear infinite;
+            z-index: 2;
+            pointer-events: none;
+        }
+        
+        @keyframes legendary-pulse {
+            0% {
+                transform: scale(0.7);
+                opacity: 0.6;
+            }
+            100% {
+                transform: scale(1.3);
+                opacity: 0.9;
+            }
+        }
+
+        @keyframes rotate-light {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        .tier-mythic.revealed-card-wrapper {
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 55px 20px #fc8181, inset 0 0 45px #e53e3e;
+        }
+        
+        .tier-mythic.revealed-card-wrapper::after {
+            content: "";
+            position: absolute;
+            inset: -8px;
+            border-radius: 0.75rem;
+            background: conic-gradient(from 0deg, #fc8181, #f6ad55, #e05656, #fc8181);
+            animation: spin 1.5s linear infinite;
+            z-index: -1;
+            filter: blur(12px);
+            opacity: 0.9;
+        }
+        
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        
+        .tier-ancient.revealed-card-wrapper {
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 65px 25px #818cf8, inset 0 0 55px #e287f0;
+        }
+        
+        .tier-ancient.revealed-card-wrapper::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255, 255, 255, 0.15) 10px, rgba(255, 255, 255, 0.15) 20px);
+            animation: ancient-shimmer 1.5s infinite linear;
+            z-index: -1;
+            opacity: 0.7;
+        }
+        
+        @keyframes ancient-shimmer {
+            0% {
+                background-position: 0 0;
+            }
+            100% {
+                background-position: 100% 100%;
+            }
+        }
+        
+        .tier-celestial.revealed-card-wrapper {
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 75px 30px #f687b3, inset 0 0 65px #ed64a6;
+        }
+        
+        .tier-celestial.revealed-card-wrapper::after {
+            content: "";
+            position: absolute;
+            inset: -15px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.6) 0%, transparent 70%);
+            animation: celestial-starlight 1s infinite alternate;
+            z-index: -1;
+            filter: blur(8px);
+            opacity: 0.8;
+        }
+        
+        @keyframes celestial-starlight {
+            0% {
+                transform: scale(0.8);
+                opacity: 0.7;
+            }
+            50% {
+                transform: scale(1.2);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(0.8);
+                opacity: 0.7;
+            }
+        }
+        
+        .tier-abyssal.revealed-card-wrapper {
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 85px 35px #4299e1, inset 0 0 75px #2b6cb0;
+        }
+        
+        .tier-abyssal.revealed-card-wrapper::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, rgba(0, 0, 0, 0.8) 0%, transparent 70%);
+            animation: abyssal-swirl 3s linear infinite;
+            z-index: -1;
+            filter: blur(4px);
+            mix-blend-mode: overlay;
+        }
+        
+        @keyframes abyssal-swirl {
+            0% {
+                transform: rotate(0deg) scale(1);
+                opacity: 0.9;
+            }
+            50% {
+                transform: rotate(180deg) scale(1.1);
+                opacity: 1;
+            }
+            100% {
+                transform: rotate(360deg) scale(1);
+                opacity: 0.9;
+            }
+        }
+        
+        .tier-primordial.revealed-card-wrapper {
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 95px 40px #ecc94b, inset 0 0 85px #d69e2e;
+        }
+        
+        @keyframes primordial-pulse {
+            0% {
+                transform: scale(0.8);
+                opacity: 0.6;
+            }
+            50% {
+                transform: scale(1.2);
+                opacity: 0.9;
+            }
+            100% {
+                transform: scale(0.8);
+                opacity: 0.6;
+            }
+        }
+        
+        .tier-primordial.revealed-card-wrapper::after {
+            content: "";
+            position: absolute;
+            inset: -25px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+            animation: primordial-pulse 2.5s infinite ease-in-out;
+            z-index: -1;
+            filter: blur(18px);
+            opacity: 0.6;
+        }
+        
+        .tier-eternal.revealed-card-wrapper {
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 105px 45px #4fd1c5, inset 0 0 95px #38b2ac;
+        }
+        
+        .tier-eternal.revealed-card-wrapper::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(45deg, rgba(255, 255, 255, 0.15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0.15) 75%, transparent 75%, transparent);
+            background-size: 20px 20px;
+            animation: eternal-grid-shift 6s linear infinite, eternal-color-shift 8s linear infinite;
+            z-index: -1;
+            opacity: 0.7;
+            mix-blend-mode: overlay;
+        }
+        
+        @keyframes eternal-grid-shift {
+            0% {
+                background-position: 0 0;
+            }
+            100% {
+                filter: hue-rotate(360deg);
+            }
+        }
+        
+        .tier-divine.revealed-card-wrapper {
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 150px 60px #d6bcfa, inset 0 0 120px #b794f4;
+            border-width: 5px;
+            border-style: double;
+            border-color: #b794f4;
+            animation: fadeInScale 0.3s ease-out forwards, divine-aura-pulse 2s infinite alternate;
+        }
+
+        @keyframes divine-aura-pulse {
+            0% {
+                box-shadow: 0 0 150px 60px #d6bcfa, inset 0 0 120px #b794f4;
+            }
+            100% {
+                box-shadow: 0 0 180px 70px #e0baff, inset 0 0 140px #c0a8f7;
+            }
+        }
+
+        .tier-divine.revealed-card-wrapper::before {
+            content: "";
+            position: absolute;
+            inset: -30px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+            animation: divine-expand-aura 3s linear infinite;
+            filter: blur(15px);
+            opacity: 0.7;
+            z-index: -3;
+        }
+
+        @keyframes divine-expand-aura {
+            0% {
+                transform: scale(0.8);
+                opacity: 0.5;
+            }
+            50% {
+                transform: scale(1.2);
+                opacity: 0.9;
+            }
+            100% {
+                transform: scale(0.8);
+                opacity: 0.5;
+            }
+        }
+        
+        .tier-divine.revealed-card-wrapper::after {
+            content: "";
+            position: absolute;
+            inset: -25px;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg, #d6bcfa, #f687b3, #ecc94b, #4fd1c5, #d6bcfa);
+            animation: portal 1.5s linear infinite;
+            z-index: -2;
+            filter: blur(15px);
+            opacity: 1;
+        }
+        
+        .tier-divine.revealed-card-wrapper .card-content-wrapper {
+            position: relative;
+            z-index: 4;
+        }
+        
+        .tier-divine.revealed-card-wrapper .card-content-wrapper::before {
+            content: "";
+            position: absolute;
+            inset: -10px;
+            background: radial-gradient(circle at center, rgba(255, 255, 255, 0.9) 0%, transparent 85%);
+            animation: divine-sparkle 0.5s infinite alternate;
+            z-index: 3;
+            filter: blur(2px);
+            pointer-events: none;
+        }
+        
+        @keyframes divine-sparkle {
+            0% {
+                transform: scale(0.9);
+                opacity: 0.8;
+            }
+            100% {
+                transform: scale(1.1);
+                opacity: 1;
+            }
+        }
+
+        .tier-divine.revealed-card-wrapper .card-name,
+        .tier-divine.revealed-card-wrapper .card-tier-quality {
+            text-shadow: 0 0 8px #fff, 0 0 15px #d6bcfa, 0 0 25px #b794f4;
+        }
+        
+        #particle-canvas {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 100;
+        }
+        
+        .filter-sort-modal-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .filter-group,
+        .sort-group {
+            background-color: #374151;
+            padding: 1rem;
+            border-radius: 0.5rem;
+        }
+        
+        .filter-group label,
+        .sort-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+            color: #cbd5e0;
+        }
+        
+        .filter-options,
+        .sort-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        
+        .filter-options button,
+        .sort-options button {
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            background-color: #4a5568;
+            color: #e2e8f0;
+            transition: background-color 0.2s;
+        }
+        
+        .filter-options button:hover,
+        .sort-options button:hover {
+            background-color: #6b7280;
+        }
+        
+        .filter-options button.selected,
+        .sort-options button.selected {
+            background-color: #3b82f6;
+            color: white;
+            font-weight: bold;
+        }
+
+        .filter-options input[type="checkbox"] {
+            margin-right: 0.5rem;
+        }
+
+        .filter-options label.checkbox-label {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            background-color: #4a5568;
+            color: #e2e8f0;
+            transition: background-color 0.2s;
+            cursor: pointer;
+        }
+
+        .filter-options label.checkbox-label:hover {
+            background-color: #6b7280;
+        }
+
+        .filter-options label.checkbox-label input[type="checkbox"]:checked + span {
+            font-weight: bold;
+            color: white;
+        }
+        
+        .modal-input {
+            width: 100%;
+            padding: 0.5rem;
+            border-radius: 0.375rem;
+            background-color: #4a5568;
+            border: 1px solid #6b7280;
+            color: #e2e8f0;
+        }
+
+        .tab-button {
+            flex-grow: 1;
+            text-align: center;
+        }
+        .tab-button.active {
+            background-color: #3b82f6;
+            color: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .tab-content {
+            min-height: 500px;
+        }
+
+        .inventory-card-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0.75rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            border-width: 2px;
+            border-style: solid;
+            min-height: 120px;
+            text-align: center;
+        }
+        .inventory-card-item:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+        }
+        .inventory-card-item .card-name {
+            font-size: 1.125rem;
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+        }
+        .inventory-card-item .card-details {
+            font-size: 0.875rem;
+        }
+
+        .grading-service-card {
+            background-color: #374151;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .grading-queue-item {
+            background-color: #4a5568;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .grading-queue-item.npc-card {
+            background-color: #5a6270; /* Slightly different background for NPC cards */
+            border-left: 3px solid #60a5fa; /* Blue border for NPC cards */
+        }
+
+        .graded-card-item {
+            background-color: #2d3748;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            border-left: 4px solid #4ade80;
+        }
+
+        .card-selection-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            background-color: #374151;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.1s ease-in-out;
+            text-align: center;
+        }
+        .card-selection-item:hover {
+            border-color: #60a5fa;
+            transform: translateY(-2px);
+        }
+        .card-selection-item.selected {
+            border-color: #3b82f6;
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.7);
+            background-color: #4a5568;
+        }
+        .card-selection-item .card-name {
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+        .card-selection-item .card-details {
+            font-size: 0.75rem;
+            color: #cbd5e0;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-900 text-gray-100 p-4">
+    <div class="container mx-auto max-w-6xl bg-gray-800 rounded-xl shadow-lg p-6 space-y-6" id="game-container">
+        <header class="text-center mb-6">
+            <h1 class="text-5xl font-extrabold text-blue-400 mb-2">Super Card Collector</h1>
+            <p class="text-lg text-gray-400">A place where collectors buy, sell, and store rare cards. Every card is verified, and its value continues to rise over time.</p>
+            <p class="text-lg font-extrabold text-blue-400 mb-1">🎴Made by Annslo🃏</p>
+        </header>
+        <script type='text/javascript' src='https://storage.ko-fi.com/cdn/widget/Widget_2.js'></script><script type='text/javascript'>kofiwidget2.init('Support me on Ko-fi', '#72a4f2', 'K3K51J184J');kofiwidget2.draw();</script> 
+
+        <nav class="flex justify-center bg-gray-700 rounded-lg p-2 mb-6 shadow-md">
+            <button id="tab-collection" class="tab-button px-6 py-3 rounded-lg font-bold text-lg transition-colors duration-200 active">Collection</button>
+            <button id="tab-shop" class="tab-button px-6 py-3 rounded-lg font-bold text-lg transition-colors duration-200">Shop</button>
+            <button id="tab-market" class="tab-button px-6 py-3 rounded-lg font-bold text-lg transition-colors duration-200">Market</button>
+            <button id="tab-grading" class="tab-button px-6 py-3 rounded-lg font-bold text-lg transition-colors duration-200">Grading Services</button>
+        </nav>
+
+        <div id="tab-content-collection" class="tab-content">
+            <section class="bg-gray-700 p-5 rounded-lg shadow-md flex flex-wrap justify-around items-center gap-4 mb-6">
+                <div class="text-center">
+                    <p class="text-gray-400 text-sm">Your Coins:</p>
+                    <p id="player-coins" class="text-3xl font-bold text-yellow-300">0</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-gray-400 text-sm">Total Cards:</p>
+                    <p id="total-cards" class="text-3xl font-bold text-blue-300">0</p>
+                </div>
+            </section>
+
+            <section class="bg-gray-700 p-5 rounded-lg shadow-md">
+                <h2 class="text-3xl font-semibold text-green-300 mb-4">Your Card Inventory</h2>
+                <div class="flex flex-col sm:flex-row flex-wrap gap-2 mb-3">
+                    <input type="text" id="inventory-search-input" placeholder="Search card name..." class="modal-input flex-grow">
+                    <button id="open-filter-sort-modal-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md text-sm">Advanced Filter & Sort</button>
+                </div>
+                <div class="flex flex-wrap gap-2 mb-3">
+                    <button id="sell-poor-fair-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md text-sm">
+                        Sell Common/Uncommon/Rare Poor/Fair
+                    </button>
+                    <button id="sell-excess-btn" class="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-lg shadow-md text-sm">
+                        Sell Excess Cards (>3)
+                    </button>
+                </div>
+                <div id="inventory-list" class="bg-gray-600 p-4 rounded-md h-96 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                    <p class="text-gray-400 text-center col-span-full py-4">No cards in inventory.</p>
+                </div>
+            </section>
+        </div>
+
+        <div id="tab-content-shop" class="tab-content hidden">
+            <section class="bg-gray-700 p-5 rounded-lg shadow-md">
+                <h2 class="text-3xl font-semibold text-blue-300 mb-4">Buy Card Packs</h2>
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-4">
+                    <button id="buy-pack-btn" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transform hover:scale-105 transition-all duration-200">
+                        Buy Pack (100 Coins) - 12 Cards
+                    </button>
+                    <button id="buy-10-packs-btn" class="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg transform hover:scale-105 transition-all duration-200">
+                        Buy 10 Packs (1000 Coins) - 120 Cards
+                    </button>
+                </div>
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-4">
+                    <button id="buy-booster-pack-btn" class="bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transform hover:scale-105 transition-all duration-200">
+                        Buy Booster Pack (<span id="booster-pack-price">0</span> Coins) - 5 Rare Cards
+                    </button>
+                </div>
+
+                <div id="pack-opening-area" class="bg-gray-600 p-6 rounded-md text-center hidden">
+                    <h3 class="text-2xl font-bold text-blue-300 mb-4">Opening Pack! (<span id="cards-remaining"></span>/<span id="total-cards-in-pack"></span>)</h3>
+                    <div id="current-revealed-card" class="min-h-[120px] flex items-center justify-center text-xl font-bold text-gray-200 mb-4">
+                    </div>
+                    <div class="flex justify-center gap-4">
+                        <button id="next-card-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                            Next Card
+                        </button>
+                        <button id="skip-all-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                            Skip All
+                        </button>
+                    </div>
+                </div>
+
+                <div id="gacha-summary" class="bg-gray-600 p-6 rounded-md text-center text-lg text-gray-300 mt-4 hidden">
+                    <h3 class="text-2xl font-bold text-blue-300 mb-4">Pack Summary</h3>
+                    <div id="gacha-summary-content" class="text-left mx-auto max-w-xs">
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div id="tab-content-market" class="tab-content hidden">
+            <section class="bg-gray-700 p-5 rounded-lg shadow-md mb-6">
+                <h2 class="text-3xl font-semibold text-green-300 mb-4">Card Market Trends</h2>
+                <div class="chart-container" id="market-price-chart">
+                </div>
+                <div id="market-overview" class="bg-gray-600 p-4 rounded-md h-auto max-h-64 overflow-y-auto space-y-2 mt-4">
+                    <p class="text-gray-400 text-center">Loading market prices...</p>
+                </div>
+            </section>
+
+            <section class="bg-gray-700 p-5 rounded-lg shadow-md mb-6">
+                <h2 class="text-3xl font-semibold text-purple-300 mb-4">Market Manipulation</h2>
+                <div class="flex flex-col sm:flex-row items-center gap-4 mb-4">
+                    <label for="manipulate-tier-select" class="text-gray-300">Select Rarity:</label>
+                    <select id="manipulate-tier-select" class="modal-input flex-grow">
+                    </select>
+                    <button id="boost-market-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">Boost Price Trend</button>
+                    <button id="depress-market-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">Depress Price Trend</button>
+                </div>
+                <p id="manipulation-cost-display" class="text-center text-gray-400 text-sm">Cost: 0 Coins</p>
+            </section>
+
+            <section class="bg-gray-700 p-5 rounded-lg shadow-md">
+                <h2 class="text-3xl font-semibold text-purple-300 mb-4">Market News</h2>
+                <div id="market-news" class="bg-gray-600 p-4 rounded-md space-y-3">
+                    <div id="most-expensive-card">
+                        <p class="text-gray-400">Current Most Expensive Card: <span class="font-semibold text-yellow-300">Loading...</span></p>
+                    </div>
+                    <div id="trending-up-cards">
+                        <p class="text-gray-400">Trending Up Cards:</p>
+                        <ul class="list-disc list-inside text-gray-300 pl-4">
+                            <li>Loading...</li>
+                        </ul>
+                    </div>
+                    <div id="market-forecast">
+                        <p class="text-gray-400">Market Forecast: <span class="font-semibold text-blue-300">Loading...</span></p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div id="tab-content-grading" class="tab-content hidden">
+            <section class="bg-gray-700 p-5 rounded-lg shadow-md mb-6">
+                <h2 class="text-3xl font-semibold text-yellow-300 mb-4">Submit Card for Grading</h2>
+                <div class="flex flex-col gap-4">
+                    <div class="flex items-center gap-2">
+                        <label for="card-to-grade-display" class="text-gray-300">Selected Card:</label>
+                        <span id="card-to-grade-display" class="flex-grow p-2 rounded-md bg-gray-700 border border-gray-500 text-white">No card selected</span>
+                        <button id="select-card-for-grading-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md">Select Card</button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label for="grading-service-select" class="text-gray-300">Select Service:</label>
+                        <select id="grading-service-select" class="modal-input flex-grow">
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label for="grading-speed-select" class="text-gray-300">Grading Speed:</label>
+                        <select id="grading-speed-select" class="modal-input flex-grow">
+                            <option value="regular">Regular</option>
+                            <option value="express">Express</option>
+                            <option value="super-express">Super Express</option>
+                        </select>
+                    </div>
+                    <p class="text-gray-300">Estimated Cost: <span id="grading-cost-display" class="font-semibold text-yellow-300">0 Coins</span></p>
+                    <button id="submit-for-grading-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-lg shadow-md" disabled>Submit Card</button>
+                </div>
+            </section>
+
+            <section class="bg-gray-700 p-5 rounded-lg shadow-md mb-6">
+                <h2 class="text-3xl font-semibold text-blue-300 mb-4">Grading Queues</h2>
+                <div id="grading-queues-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                </div>
+            </section>
+
+            <section class="bg-gray-700 p-5 rounded-lg shadow-md">
+                <h2 class="text-3xl font-semibold text-green-300 mb-4">Graded Cards Ready for Pickup</h2>
+                <div id="graded-cards-for-pickup" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <p class="text-gray-400 text-center col-span-full py-4">No graded cards ready for pickup.</p>
+                </div>
+            </section>
+        </div>
+
+        <section class="bg-gray-700 p-5 rounded-lg shadow-md flex justify-center gap-4">
+            <button id="save-game-btn" class="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold py-2 px-5 rounded-lg shadow-md transform hover:scale-105 transition-all duration-200">
+                Save Game
+            </button>
+            <div id="save-load-message" class="text-center text-lg text-gray-300"></div>
+        </section>
+
+        <div id="custom-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center hidden z-50">
+            <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-sm w-full text-center space-y-4">
+                <h3 id="modal-title" class="text-2xl font-bold text-blue-400">Message</h3>
+                <p id="modal-message" class="text-gray-300 text-lg"></p>
+                <div id="modal-buttons" class="flex justify-center gap-4">
+                    <button id="modal-close-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="filter-sort-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center hidden z-50">
+            <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full text-left space-y-4 max-h-[90vh] overflow-y-auto">
+                <h3 class="text-2xl font-bold text-blue-400 text-center">Filter & Sort Inventory</h3>
+                <div class="filter-sort-modal-content">
+                    <div class="filter-group">
+                        <label for="modal-filter-name-input">Filter Card Name:</label>
+                        <input type="text" id="modal-filter-name-input" placeholder="Enter card name..." class="modal-input mt-2">
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Filter Quality:</label>
+                        <div id="modal-filter-quality-options" class="filter-options grid grid-cols-2 lg:grid-cols-3 gap-2">
+                        </div>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Filter Rarity (Tier):</label>
+                        <div id="modal-filter-rarity-options" class="filter-options grid grid-cols-2 lg:grid-cols-3 gap-2">
+                        </div>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Filter Price Range (Coins):</label>
+                        <div class="flex gap-2 mt-2">
+                            <input type="number" id="filter-min-price-input" placeholder="Min Price" class="modal-input w-1/2">
+                            <input type="number" id="filter-max-price-input" placeholder="Max Price" class="modal-input w-1/2">
+                        </div>
+                    </div>
+
+                    <div class="sort-group">
+                        <label>Sort By Price:</label>
+                        <div class="sort-options">
+                            <button data-sort-order="none" class="selected">None</button>
+                            <button data-sort-order="desc">Highest</button>
+                            <button data-sort-order="asc">Lowest</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-center gap-4 mt-4">
+                    <button id="apply-filter-sort-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">Apply</button>
+                    <button id="clear-all-filters-sort-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">Clear All</button>
+                    <button id="close-filter-sort-modal-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="card-inspection-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center hidden z-50">
+            <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-sm w-full text-center space-y-4 relative">
+                <button id="close-inspection-modal-btn" class="absolute top-3 right-3 text-gray-400 hover:text-gray-100 text-2xl font-bold">&times;</button>
+                <h3 class="text-2xl font-bold text-blue-400 mb-4">Card Details</h3>
+                <div id="inspection-card-display" class="revealed-card-wrapper mx-auto mb-4">
+                </div>
+                <div class="text-left">
+                    <p class="text-lg text-gray-300">Name: <span id="inspection-card-name" class="font-semibold text-white"></span></p>
+                    <p class="text-lg text-gray-300">Rarity: <span id="inspection-card-tier" class="font-semibold text-white"></span></p>
+                    <p class="text-lg text-gray-300">Quality: <span id="inspection-card-quality" class="font-semibold text-white"></span></p>
+                    <p class="text-lg text-gray-300">Market Price: <span id="inspection-card-price" class="font-semibold text-yellow-300"></span></p>
+                </div>
+                <div class="flex items-center gap-2 mt-4 justify-center">
+                    <label for="inspection-sell-quantity" class="text-gray-300">Sell Quantity:</label>
+                    <input type="number" id="inspection-sell-quantity" value="1" min="1" class="w-24 p-2 rounded-md bg-gray-700 border border-gray-500 text-white">
+                </div>
+                <p class="text-gray-300 text-lg">Total Sale Value: <span id="inspection-total-sell-value" class="font-semibold text-yellow-300">0 Coins</span></p>
+                <button id="sell-card-from-inspection-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-5 rounded-lg shadow-md mt-4">
+                    Sell This Card
+                </button>
+            </div>
+        </div>
+
+        <div id="card-selection-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center hidden z-50">
+            <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full text-left space-y-4 max-h-[90vh] overflow-y-auto">
+                <h3 class="text-2xl font-bold text-blue-400 text-center">Select Card for Grading</h3>
+                <div id="card-selection-list" class="grid grid-cols-2 sm:grid-cols-3 gap-3 h-80 overflow-y-auto bg-gray-700 p-3 rounded-md">
+                    <p class="text-gray-400 text-center col-span-full py-4">No cards in inventory.</p>
+                </div>
+                <div class="flex justify-center gap-4 mt-4">
+                    <button id="confirm-card-selection-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md" disabled>Select Card</button>
+                    <button id="cancel-card-selection-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <audio id="bgm" autoplay loop>
+    <source src="https://shannary.github.io/raw-link/music/LOFI%20Yugioh%20Main%20Theme.mp3" type="audio/mpeg">
+</audio>
+
+    <script>
+        const bgm = document.getElementById("bgm");
+
+        let game = {
+            player: {
+                coins: 0,
+                inventory: [],
+                lastPlayed: Date.now(),
+                gradedCards: []
+            },
+            market: {
+                cardPrices: {},
+                priceHistory: {},
+                manipulationEffects: {}
+            },
+            cardData: [],
+            settings: {
+                packCost: 100,
+                cardsPerPack: 12,
+                priceVolatility: 0.1,
+                maxPriceHistoryPoints: 20,
+                boosterPackBaseCost: 100000,
+                boosterPackCards: 5,
+                initialAverageBasePrice: 0,
+                currentBoosterPackCost: 0
+            },
+            packOpening: {
+                cards: [],
+                currentIndex: 0,
+                isOpening: false
+            },
+            gradingServices: {
+                "AGS": {
+                    name: "Arcadia Grading Services",
+                    queue: [],
+                    baseProcessingTime: 30000, // 30 seconds
+                    costMultiplier: 0.4, // 40% of card value
+                    marketPattern: 0.1, // Affects cost variability
+                    hiddenCostFactor: 0.9 + Math.random() * 0.2, // 0.9 to 1.1
+                    hiddenSpeedFactor: 0.9 + Math.random() * 0.2, // 0.9 to 1.1
+                    hiddenRatingFactor: 0.9 + Math.random() * 0.2, // 0.9 to 1.1
+                    minNPCQueue: 10,
+                    maxNPCQueue: 15
+                },
+                "MCA": {
+                    name: "Mythos Card Authority",
+                    queue: [],
+                    baseProcessingTime: 45000, // 45 seconds
+                    costMultiplier: 0.5,
+                    marketPattern: 0.15,
+                    hiddenCostFactor: 0.9 + Math.random() * 0.2,
+                    hiddenSpeedFactor: 0.9 + Math.random() * 0.2,
+                    hiddenRatingFactor: 0.9 + Math.random() * 0.2,
+                    minNPCQueue: 10,
+                    maxNPCQueue: 15
+                },
+                "CGI": {
+                    name: "Celestial Grading Institute",
+                    queue: [],
+                    baseProcessingTime: 20000, // 20 seconds
+                    costMultiplier: 0.3,
+                    marketPattern: 0.05,
+                    hiddenCostFactor: 0.9 + Math.random() * 0.2,
+                    hiddenSpeedFactor: 0.9 + Math.random() * 0.2,
+                    hiddenRatingFactor: 0.9 + Math.random() * 0.2,
+                    minNPCQueue: 10,
+                    maxNPCQueue: 15
+                },
+                "DCB": {
+                    name: "Dominion Collectible Bureau",
+                    queue: [],
+                    baseProcessingTime: 60000, // 60 seconds
+                    costMultiplier: 0.6,
+                    marketPattern: 0.2,
+                    hiddenCostFactor: 0.9 + Math.random() * 0.2,
+                    hiddenSpeedFactor: 0.9 + Math.random() * 0.2,
+                    hiddenRatingFactor: 0.9 + Math.random() * 0.2,
+                    minNPCQueue: 10,
+                    maxNPCQueue: 15
+                }
+            }
+        };
+
+        const CARD_TIERS = [
+            { name: "Common", probability: 0.40, basePrice: 10, color: "#546e7a" },
+            { name: "Uncommon", probability: 0.25, basePrice: 25, color: "#388e3c" },
+            { name: "Rare", probability: 0.15, basePrice: 100, color: "#1976d2" },
+            { name: "Epic", probability: 0.08, basePrice: 350, color: "#673ab7" },
+            { name: "Legendary", probability: 0.05, basePrice: 1200, color: "#e65100" },
+            { name: "Mythic", probability: 0.03, basePrice: 3000, color: "#d32f2f" },
+            { name: "Ancient", probability: 0.015, basePrice: 8000, color: "#303f9f" },
+            { name: "Celestial", probability: 0.007, basePrice: 22000, color: "#c2185b" },
+            { name: "Abyssal", probability: 0.004, basePrice: 70000, color: "#0277bd" },
+            { name: "Primordial", probability: 0.002, basePrice: 200000, color: "#f9a825" },
+            { name: "Eternal", probability: 0.0008, basePrice: 600000, color: "#00897b" },
+            { name: "Divine", probability: 0.0002, basePrice: 2500000, color: "#7b1fa2" }
+        ];
+
+        const BOOSTER_TIER_PROBABILITIES = [
+            { name: "Common", probability: 0.02 },
+            { name: "Uncommon", probability: 0.03 },
+            { name: "Rare", probability: 0.05 },
+            { name: "Epic", probability: 0.10 },
+            { name: "Legendary", probability: 0.15 },
+            { name: "Mythic", probability: 0.15 },
+            { name: "Ancient", probability: 0.12 },
+            { name: "Celestial", probability: 0.10 },
+            { name: "Abyssal", probability: 0.09 },
+            { name: "Primordial", probability: 0.08 },
+            { name: "Eternal", probability: 0.06 },
+            { name: "Divine", probability: 0.05 }
+        ];
+
+        const CARD_QUALITIES = [
+            { name: "Poor", probability: 0.20, multiplier: 0.80, color: "#ef4444", borderWidth: '2px' },
+            { name: "Fair", probability: 0.28, multiplier: 1.00, color: "#9ca3af", borderWidth: '2px' },
+            { name: "Good", probability: 0.25, multiplier: 1.15, color: "#4ade80", borderWidth: '2px' },
+            { name: "Excellent", probability: 0.15, multiplier: 1.30, color: "#60a5fa", borderWidth: '2px' },
+            { name: "Mint", probability: 0.08, multiplier: 1.55, color: "#facc15", borderWidth: '3px' },
+            { name: "Perfect", probability: 0.04, multiplier: 1.85, color: "#a855f7", borderWidth: '4px' }
+        ];
+
+        const KCP_OPTIONS = {
+            "regular": { speedMultiplier: 1, costPercent: 0 },
+            "express": { speedMultiplier: 0.5, costPercent: 0.02 },
+            "super-express": { speedMultiplier: 0.2, costPercent: 0.05 }
+        };
+
+        const GRADING_STAGES = [
+            "Authentication",
+            "Condition Inspection",
+            "Grading Score",
+            "Encapsulation / Sealing",
+            "Registry & Return"
+        ];
+
+        const CARD_NAMES_BY_TIER = {
+            "Common": [
+                "Goblin Sentry", "Mystic Fungus", "Gleaming Pebble", "Rusted Key",
+                "Healing Leaf", "Skeleton Warrior", "Shield Knight", "Ruins Guardian",
+                "Forest Wisp", "Mine Worker", "Novice Sorcerer", "Hound of Vigil",
+                "Lantern Keeper", "Bronze Spearman", "Faded Scroll", "Stone Rat",
+                "Apprentice Slinger", "Woodland Scout", "Iron Dagger", "Dust Bat"
+            ],
+            "Uncommon": [
+                "Forest Sprite", "Bronze Sword", "Ring of Valor", "Potion of Might",
+                "Eternal Torch", "Flame Adept", "Shadow Wolf", "Clay Golem",
+                "Elite Bowman", "Temple Sentinel", "Dwarven Artisan", "Water Shade",
+                "Runestone Bearer", "Ash Disciple", "Spirit Owl", "Moonblade Rogue",
+                "Silver Fang", "Windcaller", "Arcane Acolyte", "Stonewatcher"
+            ],
+            "Rare": [
+                "Young Griffin", "Dragon Shield", "Amulet of Wisdom", "Arcane Scroll",
+                "Crystal of Power", "Tomb Guardian", "Wind Archer", "Wild Huntsman",
+                "Storm Mage", "Ancient Knight", "Shadow Rebel", "Mountain Spirit",
+                "Thunder Shaman", "Sigil of Dawn", "Knight of the Fallen Star",
+                "Crystal Spear", "Celestial Hawk", "Soulbound Ring", "Rune Carver"
+            ],
+            "Epic": [
+                "Knight of Light", "Spear of Storms", "Cloak of Shadows",
+                "Ancient Grimoire", "Treasure Chest", "Darkwing Dragon",
+                "Tempest Sorcerer", "Stonecrusher", "Colossus Golem",
+                "Prince of Darkness", "Ice Queen", "Warden of Dimensions",
+                "Storm Herald", "Chrono Blade", "Empress of Frostveil",
+                "Runic Arbiter", "Dragonbane Paladin", "Moonveil Enchantress",
+                "Astral Juggernaut", "Scion of Twilight"
+            ],
+            "Legendary": [
+                "Golden Dragon", "Crown of Kings", "Grand Magus Staff",
+                "Relic of Time", "Dimensional Mirror", "Emperor of Shadows",
+                "Blooming Queen", "Dimensional Conqueror", "Chosen Hero",
+                "Sword of Legends", "Sacred Shield", "Robe of Fate",
+                "Excalibur Ignis", "Emperor of the Thousand Realms",
+                "Crown of Sol Invictus", "Scepter of Eternity", "Phoenix Vanguard",
+                "Oracle of Dawn", "Celestial Monarch", "Dragonlord Eternal"
+            ],
+            "Mythic": [
+                "Immortal Phoenix", "Blade of Stars", "Vampire’s Curse",
+                "Heart of the Volcano", "Gate of Worlds", "Ancient War God",
+                "Guardian of the Galaxy", "Forbidden Soul", "Dragon Emperor",
+                "Lord of Time", "Void Walker", "Soul of Creation",
+                "Ignis Reborn", "Chronos Aeternum", "Noctis the Bloodbound",
+                "Eclipse Herald", "Oblivion Dragon", "Covenant Breaker",
+                "Oath of the Forgotten", "Astral Warlord"
+            ],
+            "Ancient": [
+                "Titan of Earth", "Whirling Tempest", "Heart of the Ocean",
+                "Spirit of the Primeval Forest", "Cosmic Aura", "Beast King of the Wilds",
+                "Sky Dragon Overlord", "World Guardian Spirit", "Elder Wyrm",
+                "Ancient Golem", "Cosmic Serpent", "Time Weaver",
+                "Primarch of Old Gods", "Aeon Serpentis", "Atlas of Forgotten Age",
+                "Runebound Colossus", "Pillar of Aeons", "Cthonian Behemoth",
+                "Elder Cyclops", "Keeper of the First Flame"
+            ],
+            "Celestial": [
+                "Guardian Angel", "Falling Star", "Divine Ray", "Harmony of Cosmos",
+                "Pillar of Light", "Sacred Light Goddess", "Blazing Comet",
+                "Sky Savior", "Archangel of Dawn", "Star Forger",
+                "Divine Herald", "Cosmic Guardian", "Seraphim Luminaris",
+                "Aurora Sanctus", "Celestia: Light of Aeons", "Halo of Eternity",
+                "Solaris Archon", "Moonveil Oracle", "Celestial Vanguard",
+                "Aether Seraph"
+            ],
+            "Abyssal": [
+                "Leviathan of the Deep", "Abyssal Wraith", "Endless Darkness",
+                "Claw of the Demon", "Forbidden Oath", "Hellfire Incubus",
+                "Lord of the Abyss", "Endless Shade", "Abyssal Horror",
+                "Shadow Lord", "Demon King", "Void Devourer",
+                "Nyx, Maw of Infinity", "Thanatos Abysswalker", "Eclipse Tyrant",
+                "Oblivion Leviathan", "Harbinger of the Depths", "Nightmare Devourer",
+                "Chains of the Abyss", "Stygian Overlord"
+            ],
+            "Primordial": [
+                "The First Maker", "Essence of Life", "Stardust Fragment",
+                "Breath of the Cosmos", "Primordial Void", "Proto-Golem",
+                "Cosmic Entity", "Origin of All Forms", "First Being",
+                "Seed of Eternity", "Primordial Chaos", "Source of All",
+                "Anima Primum", "Ur-Dragon Genesis", "Logos of Creation",
+                "Genesis Colossus", "Eternal Flame of Aeons", "Omega Serpentis",
+                "Crown of Genesis", "Axis Mundi"
+            ],
+            "Eternal": [
+                "Warden of Time", "Destiny Eternal", "Ring of Immortality",
+                "Limitless Power", "Soul of the Cosmos", "Eternal Paradox",
+                "Reality Weaver", "Boundless Fate", "Omni-Watcher",
+                "Reality Bender", "Infinite Soul", "Cosmic Architect",
+                "Chronos Eternus", "Aeon Keeper", "Infinity’s Embrace",
+                "Timeless Oracle", "Keeper of Aeons", "Hourglass of Infinity",
+                "Paragon of Fate", "Everlasting Watcher"
+            ],
+            "Divine": [
+                "God of the Market", "Card Creator", "Core of Reality",
+                "Heavenly Throne", "Will of the Cosmos", "Divine Avatar",
+                "Overlord of Multiverse", "Supreme Divinity", "Supreme Deity",
+                "Cosmic Creator", "Absolute Being", "True God",
+                "Deus Ultima", "Aetherion Omnipotent", "Logos Maximus",
+                "Architect of Infinity", "The One Above All", "Eternal Pantheon",
+                "Throne of Omniscience", "Primus Deus"
+            ]
+        };
+
+        let nextCardDefinitionId = 0;
+
+        function initializeCardData() {
+            game.cardData = [];
+            CARD_TIERS.forEach(tier => {
+                CARD_NAMES_BY_TIER[tier.name].forEach(cardName => {
+                    game.cardData.push({
+                        id: `card_${nextCardDefinitionId++}`,
+                        name: cardName,
+                        tier: tier.name,
+                        basePrice: tier.basePrice,
+                    });
+                });
+            });
+            game.settings.initialAverageBasePrice = calculateAverageBasePrice();
+        }
+
+        const playerCoinsEl = document.getElementById('player-coins');
+        const totalCardsEl = document.getElementById('total-cards');
+        const buyPackBtn = document.getElementById('buy-pack-btn');
+        const buy10PacksBtn = document.getElementById('buy-10-packs-btn');
+        const buyBoosterPackBtn = document.getElementById('buy-booster-pack-btn');
+        const boosterPackPriceEl = document.getElementById('booster-pack-price');
+
+        const packOpeningArea = document.getElementById('pack-opening-area');
+        const cardsRemainingEl = document.getElementById('cards-remaining');
+        const totalCardsInPackEl = document.getElementById('total-cards-in-pack');
+        const currentRevealedCardEl = document.getElementById('current-revealed-card');
+        const nextCardBtn = document.getElementById('next-card-btn');
+        const skipAllBtn = document.getElementById('skip-all-btn');
+        const gachaSummaryEl = document.getElementById('gacha-summary');
+        const gachaSummaryContentEl = document.getElementById('gacha-summary-content');
+
+        const inventorySearchInput = document.getElementById('inventory-search-input');
+        const openFilterSortModalBtn = document.getElementById('open-filter-sort-modal-btn');
+        const filterSortModal = document.getElementById('filter-sort-modal');
+        const closeFilterSortModalBtn = document.getElementById('close-filter-sort-modal-btn');
+        const applyFilterSortBtn = document.getElementById('apply-filter-sort-btn');
+        const clearAllFiltersSortBtn = document.getElementById('clear-all-filters-sort-btn');
+
+        const modalFilterNameInput = document.getElementById('modal-filter-name-input');
+        const modalFilterQualityOptionsDiv = document.getElementById('modal-filter-quality-options');
+        const modalFilterRarityOptionsDiv = document.getElementById('modal-filter-rarity-options');
+        const filterMinPriceInput = document.getElementById('filter-min-price-input');
+        const filterMaxPriceInput = document.getElementById('filter-max-price-input');
+        const sortOrderButtons = filterSortModal.querySelectorAll('.sort-options button');
+
+        const sellPoorFairBtn = document.getElementById('sell-poor-fair-btn');
+        const sellExcessBtn = document.getElementById('sell-excess-btn');
+        const inventoryListEl = document.getElementById('inventory-list');
+        const marketOverviewEl = document.getElementById('market-overview');
+        const marketPriceChartEl = document.getElementById('market-price-chart');
+
+        const manipulateTierSelect = document.getElementById('manipulate-tier-select');
+        const boostMarketBtn = document.getElementById('boost-market-btn');
+        const depressMarketBtn = document.getElementById('depress-market-btn');
+        const manipulationCostDisplay = document.getElementById('manipulation-cost-display');
+
+        const mostExpensiveCardEl = document.getElementById('most-expensive-card');
+        const trendingUpCardsEl = document.getElementById('trending-up-cards');
+        const marketForecastEl = document.getElementById('market-forecast');
+
+        const saveGameBtn = document.getElementById('save-game-btn');
+        const saveLoadMessageEl = document.getElementById('save-load-message');
+
+        const customModal = document.getElementById('custom-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalMessage = document.getElementById('modal-message');
+        const modalButtons = document.getElementById('modal-buttons');
+
+        const cardInspectionModal = document.getElementById('card-inspection-modal');
+        const closeInspectionModalBtn = document.getElementById('close-inspection-modal-btn');
+        const inspectionCardDisplay = document.getElementById('inspection-card-display');
+        const inspectionCardName = document.getElementById('inspection-card-name');
+        const inspectionCardTier = document.getElementById('inspection-card-tier');
+        const inspectionCardQuality = document.getElementById('inspection-card-quality');
+        const inspectionCardPrice = document.getElementById('inspection-card-price');
+        const inspectionSellQuantityInput = document.getElementById('inspection-sell-quantity');
+        const inspectionTotalSellValueEl = document.getElementById('inspection-total-sell-value');
+        const sellCardFromInspectionBtn = document.getElementById('sell-card-from-inspection-btn');
+
+        const tabCollectionBtn = document.getElementById('tab-collection');
+        const tabShopBtn = document.getElementById('tab-shop');
+        const tabMarketBtn = document.getElementById('tab-market');
+        const tabGradingBtn = document.getElementById('tab-grading');
+        const tabContentCollection = document.getElementById('tab-content-collection');
+        const tabContentShop = document.getElementById('tab-content-shop');
+        const tabContentMarket = document.getElementById('tab-content-market');
+        const tabContentGrading = document.getElementById('tab-content-grading');
+
+        const cardToGradeDisplay = document.getElementById('card-to-grade-display');
+        const selectCardForGradingBtn = document.getElementById('select-card-for-grading-btn');
+        const gradingServiceSelect = document.getElementById('grading-service-select');
+        const gradingSpeedSelect = document.getElementById('grading-speed-select');
+        const gradingCostDisplay = document.getElementById('grading-cost-display');
+        const submitForGradingBtn = document.getElementById('submit-for-grading-btn');
+        const gradingQueuesList = document.getElementById('grading-queues-list');
+        const gradedCardsForPickup = document.getElementById('graded-cards-for-pickup');
+
+        const cardSelectionModal = document.getElementById('card-selection-modal');
+        const cardSelectionList = document.getElementById('card-selection-list');
+        const confirmCardSelectionBtn = document.getElementById('confirm-card-selection-btn');
+        const cancelCardSelectionBtn = document.getElementById('cancel-card-selection-btn');
+
+        let currentFilters = {
+            name: '',
+            qualities: [],
+            rarities: [],
+            minPrice: null,
+            maxPrice: null
+        };
+        let currentSort = { type: null, order: null };
+
+        let selectedInventoryCardForGrading = null;
+        let selectedCardInstanceIdInModal = null;
+
+        const peelSound = new Audio('https://raw.githubusercontent.com/shannary/raw-link/main/music/card-sounds-35956.mp3');
+        peelSound.volume = 0.5;
+
+        const rareRevealSound = new Audio('https://codeskulptor-demos.commondatastorage.googleapis.com/descent/gotitem.mp3');
+        rareRevealSound.volume = 0.7;
+
+        const buyPackSound = new Audio('https://www.soundjay.com/misc/sounds/shuffling-cards-6.mp3');
+        buyPackSound.volume = 0.6;
+
+        const buyBoosterPackSound = new Audio('https://raw.githubusercontent.com/shannary/raw-link/main/music/open-package-box-parcel-100334.mp3');
+        buyBoosterPackSound.volume = 0.8;
+
+        function playSound(audioElement) {
+            audioElement.currentTime = 0;
+            audioElement.play().catch(e => console.error("Error playing sound:", e));
+        }
+
+        function showModal(title, message, buttons = [{ text: "Close", action: hideModal }]) {
+            modalTitle.textContent = title;
+            modalMessage.innerHTML = '';
+            modalMessage.appendChild(document.createTextNode(message));
+
+            modalButtons.innerHTML = '';
+
+            buttons.forEach(btn => {
+                const buttonElement = document.createElement('button');
+                buttonElement.textContent = btn.text;
+                buttonElement.className = 'bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md mx-1';
+                buttonElement.onclick = () => {
+                    btn.action();
+                    if (btn.action !== hideModal) {
+                        hideModal();
+                    }
+                };
+                modalButtons.appendChild(buttonElement);
+            });
+
+            customModal.classList.remove('hidden');
+        }
+
+        function hideModal() {
+            customModal.classList.add('hidden');
+        }
+
+        function getContrastingColor(hexcolor) {
+            const hex = hexcolor.startsWith('#') ? hexcolor.slice(1) : hexcolor;
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+            const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+            if (hexcolor === CARD_TIERS.find(t => t.name === "Primordial").color) {
+                return 'white';
+            }
+            return luminance > 0.5 ? 'black' : 'white';
+        }
+
+        function updateUI() {
+            playerCoinsEl.textContent = game.player.coins.toLocaleString();
+            totalCardsEl.textContent = game.player.inventory.length;
+            renderInventory();
+            renderMarketOverview();
+            renderPriceGraph();
+            updateBoosterPackPriceUI();
+            calculateAndDisplayNews();
+            populateCardToGradeDisplay();
+            renderGradingQueues();
+            renderGradedCardsForPickup();
+            updateGradingCostDisplay();
+            updateManipulationCost();
+        }
+
+        function calculateAverageBasePrice() {
+            let totalBasePrice = 0;
+            if (game.cardData.length === 0) return 1;
+            game.cardData.forEach(cardDef => {
+                totalBasePrice += cardDef.basePrice;
+            });
+            return totalBasePrice / game.cardData.length;
+        }
+
+        function calculateCurrentAverageMarketPrice() {
+            let totalMarketPrice = 0;
+            let count = 0;
+            for (const cardId in game.market.cardPrices) {
+                totalMarketPrice += game.market.cardPrices[cardId].current;
+                count++;
+            }
+            return count > 0 ? totalMarketPrice / count : game.settings.initialAverageBasePrice;
+        }
+
+        function updateBoosterPackPriceUI() {
+            const currentAverage = calculateCurrentAverageMarketPrice();
+            const priceMultiplier = currentAverage / game.settings.initialAverageBasePrice;
+            game.settings.currentBoosterPackCost = Math.max(1000, Math.floor(game.settings.boosterPackBaseCost * priceMultiplier));
+            boosterPackPriceEl.textContent = game.settings.currentBoosterPackCost.toLocaleString();
+        }
+
+        function drawQuality(tierIndex) {
+            let roll = Math.random();
+            roll -= (tierIndex / (CARD_TIERS.length - 1)) * 0.10;
+
+            let cumulativeProbability = 0;
+            for (const quality of CARD_QUALITIES) {
+                cumulativeProbability += quality.probability;
+                if (roll < cumulativeProbability) {
+                    return quality;
+                }
+            }
+            return CARD_QUALITIES[CARD_QUALITIES.length - 1];
+        }
+
+        function drawCards(count, probabilities = CARD_TIERS) {
+            const drawnCards = [];
+            for (let i = 0; i < count; i++) {
+                const roll = Math.random();
+                let cumulativeProbability = 0;
+                let chosenTier = null;
+                let chosenTierIndex = 0;
+
+                for (let j = 0; j < probabilities.length; j++) {
+                    const tierProb = probabilities[j];
+                    cumulativeProbability += tierProb.probability;
+                    if (roll < cumulativeProbability) {
+                        chosenTier = CARD_TIERS.find(t => t.name === tierProb.name);
+                        chosenTierIndex = CARD_TIERS.findIndex(t => t.name === tierProb.name);
+                        break;
+                    }
+                }
+                if (!chosenTier) {
+                    chosenTier = CARD_TIERS[0];
+                    chosenTierIndex = 0;
+                }
+
+                const availableCardsInTier = game.cardData.filter(card => card.tier === chosenTier.name);
+                if (availableCardsInTier.length === 0) {
+                    console.warn(`No cards found for tier: ${chosenTier.name}. Using Common as default.`);
+                    chosenTier = CARD_TIERS[0];
+                    chosenTierIndex = 0;
+                    const commonCards = game.cardData.filter(card => card.tier === "Common");
+                    if (commonCards.length === 0) continue;
+                    const randomCardDefinition = commonCards[Math.floor(Math.random() * commonCards.length)];
+                }
+                const randomCardDefinition = availableCardsInTier[Math.floor(Math.random() * availableCardsInTier.length)];
+
+                const cardQuality = drawQuality(chosenTierIndex);
+
+                const newCard = {
+                    instanceId: Date.now() + Math.random(),
+                    definitionId: randomCardDefinition.id,
+                    name: randomCardDefinition.name,
+                    tier: chosenTier.name,
+                    quality: cardQuality.name,
+                    qualityMultiplier: cardQuality.multiplier,
+                    isGraded: false,
+                    gradedValue: 0,
+                    gradingScore: 0
+                };
+                drawnCards.push(newCard);
+            }
+            return drawnCards;
+        }
+
+        function updateMarketPrices() {
+            const currentTimestamp = Date.now();
+            const averagePricesByTier = {};
+
+            CARD_TIERS.forEach(tier => {
+                const cardsInTier = game.cardData.filter(cardDef => cardDef.tier === tier.name);
+                let totalTierPrice = 0;
+                let cardCount = 0;
+
+                cardsInTier.forEach(cardDef => {
+                    let cardPriceEntry = game.market.cardPrices[cardDef.id] || { current: cardDef.basePrice, history: [] };
+
+                    if (cardPriceEntry.history.length >= game.settings.maxPriceHistoryPoints) {
+                        cardPriceEntry.history.shift();
+                    }
+                    cardPriceEntry.history.push(cardPriceEntry.current);
+
+                    let currentPrice = cardPriceEntry.current;
+
+                    let trendFactor = (Math.random() * 2 - 1) * 0.02;
+                    let reversionFactor = (cardDef.basePrice - currentPrice) / cardDef.basePrice * 0.05;
+
+                    if (game.market.manipulationEffects[tier.name]) {
+                        const effect = game.market.manipulationEffects[tier.name];
+                        const timeElapsed = currentTimestamp - effect.startTime;
+                        const duration = 60000;
+                        if (timeElapsed < duration) {
+                            const progress = timeElapsed / duration;
+                            trendFactor += effect.strength * (1 - progress);
+                        } else {
+                            delete game.market.manipulationEffects[tier.name];
+                        }
+                    }
+
+                    let newPrice = currentPrice * (1 + (game.settings.priceVolatility * (Math.random() * 2 - 1)) + trendFactor + reversionFactor);
+                    newPrice = Math.max(1, Math.floor(newPrice));
+
+                    cardPriceEntry.current = newPrice;
+                    game.market.cardPrices[cardDef.id] = cardPriceEntry;
+
+                    totalTierPrice += newPrice;
+                    cardCount++;
+                });
+
+                if (cardCount > 0) {
+                    averagePricesByTier[tier.name] = Math.floor(totalTierPrice / cardCount);
+                } else {
+                    averagePricesByTier[tier.name] = tier.basePrice;
+                }
+            });
+
+            for (const tier of CARD_TIERS) {
+                if (!game.market.priceHistory[tier.name]) {
+                    game.market.priceHistory[tier.name] = [];
+                }
+                game.market.priceHistory[tier.name].push({
+                    time: currentTimestamp,
+                    price: averagePricesByTier[tier.name]
+                });
+
+                if (game.market.priceHistory[tier.name].length > game.settings.maxPriceHistoryPoints) {
+                    game.market.priceHistory[tier.name].shift();
+                }
+            }
+            updateUI();
+        }
+
+        function getCardSellPrice(cardInstance) {
+            const marketBasePrice = game.market.cardPrices[cardInstance.definitionId]?.current || 0;
+            return Math.floor(marketBasePrice * cardInstance.qualityMultiplier);
+        }
+
+        buyPackBtn.addEventListener('click', () => {
+            if (game.player.coins >= game.settings.packCost) {
+                game.player.coins -= game.settings.packCost;
+                playSound(buyPackSound);
+                const newCards = drawCards(game.settings.cardsPerPack);
+                game.packOpening.cards = newCards;
+                game.packOpening.currentIndex = 0;
+                game.packOpening.isOpening = true;
+
+                buyPackBtn.disabled = true;
+                buy10PacksBtn.disabled = true;
+                buyBoosterPackBtn.disabled = true;
+                packOpeningArea.classList.remove('hidden');
+                gachaSummaryEl.classList.add('hidden');
+                revealNextCard();
+            } else {
+                showModal("Not Enough Coins", `You need ${game.settings.packCost.toLocaleString()} coins to buy a pack.`);
+            }
+        });
+
+        buy10PacksBtn.addEventListener('click', () => {
+            const cost = game.settings.packCost * 10;
+            const cardsToDraw = game.settings.cardsPerPack * 10;
+            if (game.player.coins >= cost) {
+                game.player.coins -= cost;
+                playSound(buyPackSound);
+                const newCards = drawCards(cardsToDraw);
+                game.packOpening.cards = newCards;
+                game.packOpening.currentIndex = 0;
+                game.packOpening.isOpening = true;
+
+                buyPackBtn.disabled = true;
+                buy10PacksBtn.disabled = true;
+                buyBoosterPackBtn.disabled = true;
+                packOpeningArea.classList.remove('hidden');
+                gachaSummaryEl.classList.add('hidden');
+                revealNextCard();
+            } else {
+                showModal("Not Enough Coins", `You need ${cost.toLocaleString()} coins to buy 10 packs.`);
+            }
+        });
+
+        buyBoosterPackBtn.addEventListener('click', () => {
+            const cost = game.settings.currentBoosterPackCost;
+            const cardsToDraw = game.settings.boosterPackCards;
+            if (game.player.coins >= cost) {
+                game.player.coins -= cost;
+                playSound(buyBoosterPackSound);
+                const newCards = drawCards(cardsToDraw, BOOSTER_TIER_PROBABILITIES);
+                game.packOpening.cards = newCards;
+                game.packOpening.currentIndex = 0;
+                game.packOpening.isOpening = true;
+
+                buyPackBtn.disabled = true;
+                buy10PacksBtn.disabled = true;
+                buyBoosterPackBtn.disabled = true;
+                packOpeningArea.classList.remove('hidden');
+                gachaSummaryEl.classList.add('hidden');
+                revealNextCard();
+            } else {
+                showModal("Not Enough Coins", `You need ${cost.toLocaleString()} coins to buy a Booster Pack.`);
+            }
+        });
+
+        nextCardBtn.addEventListener('click', () => {
+            if (game.packOpening.isOpening) {
+                game.packOpening.currentIndex++;
+                revealNextCard();
+            }
+        });
+
+        skipAllBtn.addEventListener('click', () => {
+            if (game.packOpening.isOpening) {
+                for (let i = game.packOpening.currentIndex; i < game.packOpening.cards.length; i++) {
+                    game.player.inventory.push(game.packOpening.cards[i]);
+                }
+                game.packOpening.currentIndex = game.packOpening.cards.length;
+                revealNextCard();
+            }
+        });
+
+        let particleCanvas = null;
+        let particleCtx = null;
+        let particles = [];
+        let animationFrameId = null;
+
+        function createParticleCanvas() {
+            if (!particleCanvas) {
+                particleCanvas = document.createElement('canvas');
+                particleCanvas.id = 'particle-canvas';
+                document.body.appendChild(particleCanvas);
+                particleCtx = particleCanvas.getContext('2d');
+            }
+            const rect = currentRevealedCardEl.getBoundingClientRect();
+            particleCanvas.width = rect.width * 1.5;
+            particleCanvas.height = rect.height * 1.5;
+            particleCanvas.style.left = `${rect.left + rect.width / 2}px`;
+            particleCanvas.style.top = `${rect.top + rect.height / 2}px`;
+            particleCanvas.style.transform = `translate(-50%, -50%)`;
+            particleCanvas.style.display = 'block';
+        }
+
+        function burstParticles(color = 'gold', count = 50, speed = 8, size = 2) {
+            createParticleCanvas();
+            particles = Array.from({
+                length: count
+            }, () => ({
+                x: particleCanvas.width / 2,
+                y: particleCanvas.height / 2,
+                dx: (Math.random() - 0.5) * speed,
+                dy: (Math.random() - 0.5) * speed,
+                r: 3 + Math.random() * size,
+                alpha: 1,
+                color: color
+            }));
+
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+            animateParticles();
+        }
+
+        function animateParticles() {
+            particleCtx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
+            let particlesRemaining = false;
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.dx;
+                p.y += p.dy;
+                p.r *= 0.96;
+                p.alpha *= 0.97;
+
+                if (p.r < 0.5 || p.alpha < 0.05) {
+                    particles.splice(i, 1);
+                } else {
+                    particlesRemaining = true;
+                    particleCtx.beginPath();
+                    particleCtx.arc(p.x, p.y, p.r, 0, 2 * Math.PI);
+                    const hexColor = p.color.startsWith('#') ? p.color.slice(1) : p.color;
+                    const r = parseInt(hexColor.substring(0, 2), 16);
+                    const g = parseInt(hexColor.substring(2, 4), 16);
+                    const b = parseInt(hexColor.substring(4, 6), 16);
+                    particleCtx.fillStyle = `rgba(${r}, ${g}, ${b}, ${p.alpha})`;
+                    particleCtx.fill();
+                }
+            }
+
+            if (particlesRemaining) {
+                animationFrameId = requestAnimationFrame(animateParticles);
+            } else {
+                particleCanvas.style.display = 'none';
+            }
+        }
+
+        function revealNextCard() {
+            cardsRemainingEl.textContent = game.packOpening.currentIndex + 1;
+            totalCardsInPackEl.textContent = game.packOpening.cards.length;
+
+            if (game.packOpening.currentIndex < game.packOpening.cards.length) {
+                const card = game.packOpening.cards[game.packOpening.currentIndex];
+                game.player.inventory.push(card);
+
+                playSound(peelSound);
+
+                const tierData = CARD_TIERS.find(t => t.name === card.tier);
+                const qualityData = CARD_QUALITIES.find(q => q.name === card.quality);
+                const cardNameTextColor = getContrastingColor(tierData.color); 
+
+                const cardDisplayDiv = document.createElement('div');
+                cardDisplayDiv.className = `revealed-card-wrapper ${getTierClassForEffect(card.tier)} ${getQualityClassForEffect(card.quality)}`;
+                cardDisplayDiv.style.backgroundColor = tierData.color; 
+                cardDisplayDiv.style.borderColor = qualityData.color; 
+                cardDisplayDiv.style.borderWidth = qualityData.borderWidth; 
+                cardDisplayDiv.style.borderStyle = 'solid';
+
+                cardDisplayDiv.innerHTML = `
+                    <div class="card-content-wrapper">
+                        <p class="text-2xl font-bold card-name" style="color: ${cardNameTextColor};">${card.name}</p>
+                        <p class="text-xl card-tier-quality">
+                            <span class="text-white">${card.tier}</span> (<span style="color: ${qualityData.color};">${card.quality}</span>)
+                        </p>
+                    </div>
+                `;
+                currentRevealedCardEl.innerHTML = '';
+                currentRevealedCardEl.appendChild(cardDisplayDiv);
+
+                const tierIndex = CARD_TIERS.findIndex(t => t.name === card.tier);
+                const legendaryIndex = CARD_TIERS.findIndex(t => t.name === "Legendary");
+
+                if (tierIndex >= legendaryIndex) {
+                    playSound(rareRevealSound);
+                    let particleCount = 50;
+                    let particleSpeed = 8;
+                    let particleSize = 2;
+
+                    if (tierIndex > legendaryIndex) {
+                        particleCount += (tierIndex - legendaryIndex) * 10;
+                        particleSpeed += (tierIndex - legendaryIndex) * 0.5;
+                        particleSize += (tierIndex - legendaryIndex) * 0.2;
+                    }
+                    burstParticles(CARD_TIERS.find(t => t.name === card.tier).color, particleCount, particleSpeed, particleSize);
+                }
+
+                updateUI();
+                saveGame();
+            } else {
+                packOpeningArea.classList.add('hidden');
+                gachaSummaryEl.classList.remove('hidden');
+                buyPackBtn.disabled = false;
+                buy10PacksBtn.disabled = false;
+                buyBoosterPackBtn.disabled = false;
+
+                let summaryHtml = ``;
+                const counts = {};
+                game.packOpening.cards.forEach(card => {
+                    const tierData = CARD_TIERS.find(t => t.name === card.tier);
+                    const qualityData = CARD_QUALITIES.find(q => q.name === card.quality);
+                    const cardNameTextColor = getContrastingColor(tierData.color);
+
+                    const key = `${card.name} (${card.tier}, ${card.quality})`;
+                    if (!counts[key]) {
+                        counts[key] = {
+                            count: 0,
+                            name: card.name,
+                            tier: card.tier,
+                            quality: card.quality,
+                            tierColor: tierData.color,
+                            qualityColor: qualityData.color,
+                            cardNameTextColor: cardNameTextColor
+                        };
+                    }
+                    counts[key].count++;
+                });
+                for (const key in counts) {
+                    const item = counts[key];
+                    summaryHtml += `<p>${item.count}x <span style="color: ${item.cardNameTextColor};">${item.name}</span> (<span class="text-white">${item.tier}</span>, <span style="color: ${item.qualityColor};">${item.quality}</span>)</p>`;
+                }
+                gachaSummaryContentEl.innerHTML = summaryHtml;
+
+                game.packOpening.isOpening = false;
+            }
+        }
+
+        sellPoorFairBtn.addEventListener('click', () => {
+            const qualitiesToSell = ["Poor", "Fair"];
+            const tiersToConsider = ["Common", "Uncommon", "Rare"];
+            let totalCardsSold = 0;
+            let totalCoinsEarned = 0;
+            const newInventory = [];
+
+            const currentInventory = [...game.player.inventory];
+
+            for (const card of currentInventory) {
+                if (qualitiesToSell.includes(card.quality) && tiersToConsider.includes(card.tier) && !card.isGraded) {
+                    totalCardsSold++;
+                    totalCoinsEarned += getCardSellPrice(card);
+                } else {
+                    newInventory.push(card);
+                }
+            }
+
+            if (totalCardsSold > 0) {
+                game.player.coins += totalCoinsEarned;
+                game.player.inventory = newInventory;
+                showModal("Quick Sell Successful!", `You successfully sold ${totalCardsSold} Poor/Fair Common/Uncommon/Rare cards for ${totalCoinsEarned.toLocaleString()} Coins.`);
+                updateUI();
+                saveGame();
+            } else {
+                showModal("No Cards to Sell", "You have no Poor or Fair Common/Uncommon/Rare cards in your inventory to sell.");
+            }
+        });
+
+        sellExcessBtn.addEventListener('click', () => {
+            const excessThreshold = 3;
+            let totalCardsSold = 0;
+            let totalCoinsEarned = 0;
+            const newInventory = [];
+
+            const groupedCards = {};
+            game.player.inventory.forEach(card => {
+                const key = `${card.definitionId}-${card.quality}-${card.isGraded ? 'graded' : 'raw'}-${card.isGraded ? card.gradingScore : ''}`;
+                if (!groupedCards[key]) {
+                    groupedCards[key] = {
+                        definitionId: card.definitionId,
+                        quality: card.quality,
+                        qualityMultiplier: card.qualityMultiplier,
+                        count: 0,
+                        instanceIds: [],
+                        isGraded: card.isGraded,
+                        gradingScore: card.gradingScore,
+                        gradedValue: card.gradedValue
+                    };
+                }
+                groupedCards[key].count++;
+                groupedCards[key].instanceIds.push(card.instanceId);
+            });
+
+            for (const key in groupedCards) {
+                const group = groupedCards[key];
+                if (group.count > excessThreshold) {
+                    const cardsToSellCount = group.count - excessThreshold;
+                    for (let i = 0; i < cardsToSellCount; i++) {
+                        const indexToRemove = game.player.inventory.findIndex(c => 
+                            c.definitionId === group.definitionId && 
+                            c.quality === group.quality && 
+                            c.isGraded === group.isGraded && 
+                            (!c.isGraded || c.gradingScore === group.gradingScore)
+                        );
+                        if (indexToRemove !== -1) {
+                            const cardToSell = game.player.inventory.splice(indexToRemove, 1)[0];
+                            totalCoinsEarned += cardToSell.isGraded ? cardToSell.gradedValue : getCardSellPrice(cardToSell);
+                            totalCardsSold++;
+                        }
+                    }
+                }
+            }
+
+            if (totalCardsSold > 0) {
+                game.player.coins += totalCoinsEarned;
+                showModal("Excess Sell Successful!", `You successfully sold ${totalCardsSold} excess cards for ${totalCoinsEarned.toLocaleString()} Coins.`);
+                updateUI();
+                saveGame();
+            } else {
+                showModal("No Excess Cards", "You don't have more than 3 copies of any card to sell.");
+            }
+        });
+
+        let selectedCardForSell = null;
+
+        function renderInventory() {
+            inventoryListEl.innerHTML = '';
+
+            let filteredAndSortedCards = [];
+            const groupedCards = {};
+            game.player.inventory.forEach(card => {
+                const key = `${card.definitionId}-${card.quality}-${card.isGraded ? 'graded' : 'raw'}-${card.isGraded ? card.gradingScore : ''}`;
+                if (!groupedCards[key]) {
+                    groupedCards[key] = {
+                        definitionId: card.definitionId,
+                        name: card.name,
+                        tier: card.tier,
+                        quality: card.quality,
+                        qualityMultiplier: card.qualityMultiplier,
+                        count: 0,
+                        instanceIds: [],
+                        isGraded: card.isGraded,
+                        gradedValue: card.gradedValue,
+                        gradingScore: card.gradingScore
+                    };
+                }
+                groupedCards[key].count++;
+                groupedCards[key].instanceIds.push(card.instanceId);
+            });
+
+            Object.values(groupedCards).forEach(cardGroup => {
+                const cardDef = game.cardData.find(def => def.id === cardGroup.definitionId);
+                if (!cardDef) return;
+
+                const cardNameLower = cardDef.name.toLowerCase();
+                const cardQualityLower = cardGroup.quality.toLowerCase();
+                const cardTierLower = cardGroup.tier.toLowerCase();
+                const cardSellPrice = cardGroup.isGraded ? cardGroup.gradedValue : getCardSellPrice({ definitionId: cardGroup.definitionId, qualityMultiplier: cardGroup.qualityMultiplier });
+
+                let passesFilter = true;
+
+                if (inventorySearchInput.value.trim() !== '' && !cardNameLower.includes(inventorySearchInput.value.toLowerCase().trim())) {
+                    passesFilter = false;
+                }
+
+                if (currentFilters.name !== '' && !cardNameLower.includes(currentFilters.name)) {
+                    passesFilter = false;
+                }
+
+                if (currentFilters.qualities.length > 0 && !currentFilters.qualities.includes(cardQualityLower)) {
+                    passesFilter = false;
+                }
+
+                if (currentFilters.rarities.length > 0 && !currentFilters.rarities.includes(cardTierLower)) {
+                    passesFilter = false;
+                }
+
+                if (currentFilters.minPrice !== null && cardSellPrice < currentFilters.minPrice) {
+                    passesFilter = false;
+                }
+                if (currentFilters.maxPrice !== null && cardSellPrice > currentFilters.maxPrice) {
+                    passesFilter = false;
+                }
+
+                if (passesFilter) {
+                    filteredAndSortedCards.push(cardGroup);
+                }
+            });
+
+            if (currentSort.type === 'price') {
+                filteredAndSortedCards.sort((a, b) => {
+                    const priceA = a.isGraded ? a.gradedValue : getCardSellPrice({ definitionId: a.definitionId, qualityMultiplier: a.qualityMultiplier });
+                    const priceB = b.isGraded ? b.gradedValue : getCardSellPrice({ definitionId: b.definitionId, qualityMultiplier: b.qualityMultiplier });
+                    return currentSort.order === 'desc' ? priceB - priceA : priceA - priceB;
+                });
+            } else {
+                filteredAndSortedCards.sort((a, b) => {
+                    const tierAIndex = CARD_TIERS.findIndex(t => t.name === a.tier);
+                    const tierBIndex = CARD_TIERS.findIndex(t => t.name === b.tier);
+                    if (tierBIndex !== tierAIndex) {
+                        return tierBIndex - tierAIndex;
+                    }
+                    const qualityAIndex = CARD_QUALITIES.findIndex(q => q.name === a.quality);
+                    const qualityBIndex = CARD_QUALITIES.findIndex(q => q.name === b.quality);
+                    return qualityBIndex - qualityAIndex;
+                });
+            }
+
+            if (filteredAndSortedCards.length === 0) {
+                inventoryListEl.innerHTML = '<p class="text-gray-400 text-center col-span-full py-4">No cards matching current filters or sort.</p>';
+                return;
+            }
+
+            filteredAndSortedCards.forEach(cardGroup => {
+                const cardDef = game.cardData.find(def => def.id === cardGroup.definitionId);
+                const tierData = CARD_TIERS.find(t => t.name === cardDef.tier);
+                const qualityData = CARD_QUALITIES.find(q => q.name === cardGroup.quality);
+                const cardNameTextColor = getContrastingColor(tierData.color); 
+
+                const sellPricePerUnit = cardGroup.isGraded ? cardGroup.gradedValue : getCardSellPrice({ definitionId: cardGroup.definitionId, qualityMultiplier: cardGroup.qualityMultiplier });
+
+                const cardItem = document.createElement('div');
+                cardItem.className = `inventory-card-item ${getTierClassForEffect(cardGroup.tier)} ${getQualityClassForEffect(cardGroup.quality)}`;
+                cardItem.style.backgroundColor = tierData.color; 
+                cardItem.style.borderColor = qualityData.color; 
+                cardItem.style.borderWidth = qualityData.borderWidth; 
+                
+                let gradedInfo = '';
+                if (cardGroup.isGraded) {
+                    const scoreColor = cardGroup.gradingScore >= 8 ? 'text-green-400' :
+                                       cardGroup.gradingScore >= 5 ? 'text-blue-400' :
+                                       cardGroup.gradingScore >= 0 ? 'text-yellow-400' : 'text-red-400';
+                    gradedInfo = `<div class="text-sm ${scoreColor}">Graded: ${cardGroup.gradingScore}/10</div>`;
+                }
+
+                cardItem.innerHTML = `
+                    <div class="card-name" style="color: ${cardNameTextColor};">${cardDef.name}</div>
+                    <div class="card-details">
+                        <span class="text-white">${cardGroup.tier}</span> (<span style="color: ${qualityData.color};">${cardGroup.quality}</span>)
+                    </div>
+                    ${gradedInfo}
+                    <div class="card-details text-amber-400">${sellPricePerUnit.toLocaleString()} Coins</div>
+                    <div class="card-details text-black">Amount: <span class="font-semibold">${cardGroup.count}</span></div>
+                `;
+                cardItem.addEventListener('click', () => {
+                    showCardInspection(cardGroup);
+                });
+                inventoryListEl.appendChild(cardItem);
+            });
+        }
+
+        function showCardInspection(cardGroup) {
+            const sellPricePerUnit = cardGroup.isGraded ? cardGroup.gradedValue : getCardSellPrice({ definitionId: cardGroup.definitionId, qualityMultiplier: cardGroup.qualityMultiplier });
+
+            selectedCardForSell = {
+                ...cardGroup,
+                currentPricePerUnit: sellPricePerUnit
+            };
+
+            const tierData = CARD_TIERS.find(t => t.name === selectedCardForSell.tier);
+            const qualityData = CARD_QUALITIES.find(q => q.name === selectedCardForSell.quality);
+            const cardNameTextColor = getContrastingColor(tierData.color); 
+
+            inspectionCardDisplay.className = `revealed-card-wrapper mx-auto mb-4 ${getTierClassForEffect(selectedCardForSell.tier)} ${getQualityClassForEffect(selectedCardForSell.quality)}`;
+            inspectionCardDisplay.style.backgroundColor = tierData.color; 
+            inspectionCardDisplay.style.borderColor = qualityData.color; 
+            inspectionCardDisplay.style.borderWidth = qualityData.borderWidth; 
+            inspectionCardDisplay.style.borderStyle = 'solid';
+            
+            let gradedInfoDisplay = '';
+            if (selectedCardForSell.isGraded) {
+                const scoreColor = selectedCardForSell.gradingScore >= 8 ? 'text-green-400' :
+                                   selectedCardForSell.gradingScore >= 5 ? 'text-blue-400' :
+                                   selectedCardForSell.gradingScore >= 0 ? 'text-yellow-400' : 'text-red-400';
+                gradedInfoDisplay = `<p class="text-lg text-gray-300">Grading Score: <span class="font-semibold ${scoreColor}">${selectedCardForSell.gradingScore}/10</span></p>`;
+            }
+
+            inspectionCardDisplay.innerHTML = `
+                <div class="card-content-wrapper">
+                    <p class="text-2xl font-bold card-name" style="color: ${cardNameTextColor};">${selectedCardForSell.name}</p>
+                    <p class="text-xl card-tier-quality">
+                        <span class="text-white">${selectedCardForSell.tier}</span> (<span style="color: ${qualityData.color};">${selectedCardForSell.quality}</span>)
+                    </p>
+                </div>
+            `;
+
+            inspectionCardName.textContent = selectedCardForSell.name;
+            inspectionCardTier.textContent = selectedCardForSell.tier;
+            inspectionCardQuality.textContent = selectedCardForSell.quality;
+            inspectionCardPrice.innerHTML = `${sellPricePerUnit.toLocaleString()} Coins ${gradedInfoDisplay}`;
+
+            inspectionSellQuantityInput.value = 1;
+            inspectionSellQuantityInput.max = selectedCardForSell.count;
+
+            const updateInspectionSellValue = () => {
+                const quantity = parseInt(inspectionSellQuantityInput.value, 10);
+                if (isNaN(quantity) || quantity < 1) {
+                    inspectionTotalSellValueEl.textContent = '0 Coins';
+                    return;
+                }
+                const totalValue = quantity * selectedCardForSell.currentPricePerUnit;
+                inspectionTotalSellValueEl.textContent = `${totalValue.toLocaleString()} Coins`;
+            };
+
+            inspectionSellQuantityInput.oninput = updateInspectionSellValue;
+            updateInspectionSellValue();
+
+            cardInspectionModal.classList.remove('hidden');
+        }
+
+        closeInspectionModalBtn.addEventListener('click', () => {
+            cardInspectionModal.classList.add('hidden');
+            selectedCardForSell = null;
+        });
+
+        sellCardFromInspectionBtn.addEventListener('click', () => {
+            if (!selectedCardForSell) {
+                showModal("Error", "No card selected for sale.");
+                return;
+            }
+            const quantityToSell = parseInt(inspectionSellQuantityInput.value, 10);
+            if (isNaN(quantityToSell) || quantityToSell < 1 || quantityToSell > selectedCardForSell.count) {
+                showModal("Invalid Input", "Enter a valid quantity to sell.");
+                return;
+            }
+            sellCard(selectedCardForSell.definitionId, selectedCardForSell.quality, quantityToSell, selectedCardForSell.isGraded, selectedCardForSell.gradingScore);
+            cardInspectionModal.classList.add('hidden');
+        });
+
+        function sellCard(definitionIdToSell, qualityToSell, quantityToSell, isGraded, gradingScore) {
+            if (!selectedCardForSell || selectedCardForSell.definitionId !== definitionIdToSell || selectedCardForSell.quality !== qualityToSell || selectedCardForSell.isGraded !== isGraded || (isGraded && selectedCardForSell.gradingScore !== gradingScore)) {
+                showModal("Error", "Invalid card selection for sale. Please select a card from your inventory first.");
+                return;
+            }
+
+            let cardsSoldCount = 0;
+            let totalValue = 0;
+            const instancesToKeep = [];
+            let soldCountForThisOperation = 0;
+
+            for (let i = 0; i < game.player.inventory.length; i++) {
+                const card = game.player.inventory[i];
+                const matchesGradingStatus = isGraded === card.isGraded && (!isGraded || card.gradingScore === gradingScore);
+
+                if (card.definitionId === definitionIdToSell && card.quality === qualityToSell && matchesGradingStatus && soldCountForThisOperation < quantityToSell) {
+                    totalValue += card.isGraded ? card.gradedValue : getCardSellPrice(card);
+                    cardsSoldCount++;
+                    soldCountForThisOperation++;
+                } else {
+                    instancesToKeep.push(card);
+                }
+            }
+            
+            if (soldCountForThisOperation !== quantityToSell) {
+                 showModal("Error", `The quantity of cards you want to sell (${quantityToSell}) was not found or is insufficient in your inventory (${soldCountForThisOperation} found).`);
+                 return;
+            }
+
+            game.player.coins += totalValue;
+            game.player.inventory = instancesToKeep;
+
+            showModal("Successfully Sold!", `You successfully sold ${cardsSoldCount}x ${selectedCardForSell.name} (${selectedCardForSell.quality}) for ${totalValue.toLocaleString()} Coins.`);
+            selectedCardForSell = null;
+            updateUI();
+            saveGame();
+        }
+
+        function getTierClassForEffect(tier) {
+            return `tier-${tier.toLowerCase()}`;
+        }
+
+        function getQualityClassForEffect(quality) {
+            return `quality-${quality.toLowerCase().replace(/\s/g, '-')}`;
+        }
+
+        function renderMarketOverview() {
+            marketOverviewEl.innerHTML = '';
+            const marketPricesByTier = {};
+
+            CARD_TIERS.forEach(tier => {
+                const cardsInTier = game.cardData.filter(cardDef => cardDef.tier === tier.name);
+                let totalTierPrice = 0;
+                let cardCount = 0;
+
+                cardsInTier.forEach(cardDef => {
+                    totalTierPrice += game.market.cardPrices[cardDef.id]?.current || cardDef.basePrice;
+                    cardCount++;
+                });
+
+                if (cardCount > 0) {
+                    marketPricesByTier[tier.name] = Math.floor(totalTierPrice / cardCount);
+                } else {
+                    marketPricesByTier[tier.name] = tier.basePrice;
+                }
+            });
+
+            CARD_TIERS.forEach(tier => {
+                const currentPrice = marketPricesByTier[tier.name];
+                const tierElement = document.createElement('div');
+                tierElement.className = `flex justify-between items-center bg-gray-700 p-3 rounded-md shadow-sm border-l-4`;
+                tierElement.style.borderLeftColor = tier.color;
+
+                const tierColorStyle = `color: ${getContrastingColor(tier.color)};`; 
+
+                tierElement.innerHTML = `
+                    <span class="font-semibold" style="${tierColorStyle}">${tier.name}</span>
+                    <span class="text-yellow-300">${currentPrice.toLocaleString()} Coins</span>
+                `;
+                marketOverviewEl.appendChild(tierElement);
+            });
+        }
+
+        function renderPriceGraph() {
+            marketPriceChartEl.innerHTML = '';
+
+            const margin = { top: 20, right: 30, bottom: 40, left: 50 };
+            const width = marketPriceChartEl.clientWidth - margin.left - margin.right;
+            const height = marketPriceChartEl.clientHeight - margin.top - margin.bottom;
+
+            const svg = d3.select("#market-price-chart")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            let allTimePoints = [];
+            for (const tierName in game.market.priceHistory) {
+                allTimePoints = allTimePoints.concat(game.market.priceHistory[tierName].map(d => d.time));
+            }
+            const minTime = d3.min(allTimePoints);
+            const maxTime = d3.max(allTimePoints);
+
+            const domainMinTime = minTime || (Date.now() - 60000);
+            const domainMaxTime = maxTime || Date.now();
+
+            const xScale = d3.scaleTime()
+                .domain([domainMinTime, domainMaxTime])
+                .range([0, width]);
+
+            let allPrices = [];
+            for (const cardId in game.market.cardPrices) {
+                allPrices.push(game.market.cardPrices[cardId].current);
+            }
+            const maxPrice = d3.max(allPrices) || 100;
+            const yScale = d3.scaleLinear()
+                .domain([0, maxPrice * 1.2])
+                .range([height, 0]);
+
+            svg.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(xScale).ticks(d3.timeSecond.every(10)).tickFormat(d3.timeFormat("%H:%M:%S")));
+
+            svg.append("g")
+                .call(d3.axisLeft(yScale));
+
+            const line = d3.line()
+                .x(d => xScale(d.time))
+                .y(d => yScale(d.price));
+
+            for (const tier of CARD_TIERS) {
+                const tierHistory = game.market.priceHistory[tier.name] || [];
+                if (tierHistory.length > 1) {
+                    svg.append("path")
+                        .datum(tierHistory)
+                        .attr("fill", "none")
+                        .attr("stroke", tier.color)
+                        .attr("stroke-width", 2)
+                        .attr("d", line)
+                        .attr("class", "line");
+
+                    const lastPoint = tierHistory[tierHistory.length - 1];
+                    if (lastPoint) {
+                        svg.append("text")
+                            .attr("transform", `translate(${xScale(lastPoint.time)},${yScale(lastPoint.price)})`)
+                            .attr("x", 5)
+                            .attr("dy", "0.35em")
+                            .style("font-size", "10px")
+                            .style("fill", getContrastingColor(tier.color))
+                            .text(`${tier.name}: ${lastPoint.price.toLocaleString()}`);
+                    }
+                }
+            }
+        }
+
+        function calculateAndDisplayNews() {
+            let mostExpensive = { card: null, price: 0 };
+            let trendingUp = [];
+
+            for (const cardDef of game.cardData) {
+                const cardPriceEntry = game.market.cardPrices[cardDef.id];
+                if (cardPriceEntry && cardPriceEntry.current > mostExpensive.price) {
+                    mostExpensive = { card: cardDef, price: cardPriceEntry.current };
+                }
+
+                if (cardPriceEntry && cardPriceEntry.history.length >= 2) {
+                    const oldPrice = cardPriceEntry.history[0];
+                    const currentPrice = cardPriceEntry.current;
+                    if (oldPrice > 0) {
+                        const change = (currentPrice - oldPrice) / oldPrice;
+                        if (change > 0.05) {
+                            trendingUp.push({ card: cardDef, change: change, currentPrice: currentPrice });
+                        }
+                    }
+                }
+            }
+
+            trendingUp.sort((a, b) => b.change - a.change);
+            trendingUp = trendingUp.slice(0, 3);
+
+            const currentAvg = calculateCurrentAverageMarketPrice();
+            const historyLength = game.market.priceHistory[CARD_TIERS[0].name]?.length || 0;
+            let oldAvg = currentAvg;
+
+            if (historyLength > 5) {
+                let sumOld = 0;
+                let countOld = 0;
+                CARD_TIERS.forEach(tier => {
+                    if (game.market.priceHistory[tier.name] && game.market.priceHistory[tier.name].length > 5) {
+                        sumOld += game.market.priceHistory[tier.name][historyLength - 5].price;
+                        countOld++;
+                    }
+                });
+                if (countOld > 0) {
+                    oldAvg = sumOld / countOld;
+                }
+            }
+
+            const overallChange = (currentAvg - oldAvg) / oldAvg;
+            let forecastMessage = "Market looks stable.";
+            if (overallChange > 0.02) {
+                forecastMessage = "Market prices are trending up! Good time to sell.";
+            } else if (overallChange < -0.02) {
+                forecastMessage = "Market prices are trending down. Might be a good time to buy!";
+            }
+
+            if (mostExpensive.card) {
+                const tierColor = CARD_TIERS.find(t => t.name === mostExpensive.card.tier)?.color || '#e2e8f0';
+                mostExpensiveCardEl.innerHTML = `<p class="text-gray-400">Current Most Expensive Card: <span class="font-semibold" style="color: ${getContrastingColor(tierColor)};">${mostExpensive.card.name}</span> - ${mostExpensive.price.toLocaleString()} Coins</p>`;
+            } else {
+                mostExpensiveCardEl.innerHTML = '<p class="text-gray-400">Current Most Expensive Card: <span class="font-semibold text-yellow-300">No data yet.</span></p>';
+            }
+
+            trendingUpCardsEl.innerHTML = '<p class="text-gray-400">Trending Up Cards:</p>';
+            const trendingList = document.createElement('ul');
+            trendingList.className = 'list-disc list-inside text-gray-300 pl-4';
+            if (trendingUp.length > 0) {
+                trendingUp.forEach(item => {
+                    const tierColor = CARD_TIERS.find(t => t.name === item.card.tier)?.color || '#e2e8f0';
+                    const listItem = document.createElement('li');
+                    listItem.innerHTML = `<span class="font-semibold" style="color: ${getContrastingColor(tierColor)};">${item.card.name}</span> (+${(item.change * 100).toFixed(1)}%) - ${item.currentPrice.toLocaleString()} Coins`;
+                    trendingList.appendChild(listItem);
+                });
+            } else {
+                const listItem = document.createElement('li');
+                listItem.textContent = 'No cards currently trending up.';
+                trendingList.appendChild(listItem);
+            }
+            trendingUpCardsEl.appendChild(trendingList);
+
+            marketForecastEl.innerHTML = `<p class="text-gray-400">Market Forecast: <span class="font-semibold text-blue-300">${forecastMessage}</span></p>`;
+        }
+
+        const SAVE_KEY = 'superCardCollectorGame';
+
+        function saveGame() {
+            try {
+                game.player.lastPlayed = Date.now();
+                game.currentFilters = currentFilters;
+                game.currentSort = currentSort;
+                localStorage.setItem(SAVE_KEY, JSON.stringify(game));
+                saveLoadMessageEl.textContent = 'Game saved!';
+                saveLoadMessageEl.className = "text-center text-lg text-green-400";
+                setTimeout(() => saveLoadMessageEl.textContent = '', 3000);
+            } catch (e) {
+                console.error("Failed to save game:", e);
+                showModal("Error", "Failed to save game. Make sure your browser supports Local Storage.");
+            }
+        }
+
+        function loadGame() {
+            try {
+                const savedGame = localStorage.getItem(SAVE_KEY);
+                if (savedGame) {
+                    const loadedGame = JSON.parse(savedGame);
+
+                    game = {
+                        ...game,
+                        player: {
+                            ...game.player,
+                            ...loadedGame.player,
+                            gradedCards: loadedGame.player.gradedCards || []
+                        },
+                        market: {
+                            ...game.market,
+                            ...loadedGame.market,
+                            manipulationEffects: loadedGame.market.manipulationEffects || {}
+                        },
+                        settings: {
+                            ...game.settings,
+                            ...loadedGame.settings
+                        },
+                        packOpening: {
+                            ...game.packOpening,
+                            ...loadedGame.packOpening
+                        },
+                        gradingServices: Object.keys(game.gradingServices).reduce((acc, key) => {
+                            acc[key] = {
+                                ...game.gradingServices[key],
+                                ...(loadedGame.gradingServices ? loadedGame.gradingServices[key] : {})
+                            };
+                            return acc;
+                        }, {})
+                    };
+
+                    if (game.settings.initialAverageBasePrice === 0 || !game.settings.initialAverageBasePrice || !game.cardData || game.cardData.length === 0) {
+                        initializeCardData();
+                        game.settings.initialAverageBasePrice = calculateAverageBasePrice();
+                    }
+
+                    const newCardPrices = {};
+                    for (const cardDef of game.cardData) {
+                        const loadedPriceEntry = loadedGame.market.cardPrices?.[cardDef.id];
+                        newCardPrices[cardDef.id] = {
+                            current: loadedPriceEntry ? loadedPriceEntry.current : cardDef.basePrice,
+                            history: loadedPriceEntry ? loadedPriceEntry.history : []
+                        };
+                    }
+                    game.market.cardPrices = newCardPrices;
+
+                    currentFilters = loadedGame.currentFilters || { name: '', qualities: [], rarities: [], minPrice: null, maxPrice: null };
+                    currentSort = loadedGame.currentSort || { type: null, order: null };
+
+                    saveLoadMessageEl.textContent = `Game loaded!`;
+                    saveLoadMessageEl.className = "text-center text-lg text-green-400";
+                    setTimeout(() => saveLoadMessageEl.textContent = '', 5000);
+                    updateUI();
+                    updateMarketPrices();
+                } else {
+                    resetGameInitialState();
+                    saveLoadMessageEl.textContent = 'No saved game found. Starting new game.';
+                    saveLoadMessageEl.className = "text-center text-lg text-yellow-400";
+                    setTimeout(() => saveLoadMessageEl.textContent = '', 3000);
+                }
+            } catch (e) {
+                console.error("Failed to load game:", e);
+                showModal("Error", "Failed to load game. Data might be corrupted. Starting new game.");
+                resetGameInitialState();
+            }
+        }
+
+        function resetGameInitialState() {
+            localStorage.removeItem(SAVE_KEY);
+
+            game = {
+                player: {
+                    coins: 500,
+                    inventory: [],
+                    lastPlayed: Date.now(),
+                    gradedCards: []
+                },
+                market: {
+                    cardPrices: {},
+                    priceHistory: {},
+                    manipulationEffects: {}
+                },
+                cardData: [],
+                settings: {
+                    packCost: 100,
+                    cardsPerPack: 12,
+                    priceVolatility: 0.1,
+                    maxPriceHistoryPoints: 20,
+                    boosterPackBaseCost: 100000,
+                    boosterPackCards: 5,
+                    initialAverageBasePrice: 0,
+                    currentBoosterPackCost: 0
+                },
+                packOpening: {
+                    cards: [],
+                    currentIndex: 0,
+                    isOpening: false
+                },
+                gradingServices: {
+                    "AGS": {
+                        name: "Arcadia Grading Services",
+                        queue: [],
+                        baseProcessingTime: 30000,
+                        costMultiplier: 0.4,
+                        marketPattern: 0.1,
+                        hiddenCostFactor: 0.9 + Math.random() * 0.2,
+                        hiddenSpeedFactor: 0.9 + Math.random() * 0.2,
+                        hiddenRatingFactor: 0.9 + Math.random() * 0.2,
+                        minNPCQueue: 10,
+                        maxNPCQueue: 15
+                    },
+                    "MCA": {
+                        name: "Mythos Card Authority",
+                        queue: [],
+                        baseProcessingTime: 45000,
+                        costMultiplier: 0.5,
+                        marketPattern: 0.15,
+                        hiddenCostFactor: 0.9 + Math.random() * 0.2,
+                        hiddenSpeedFactor: 0.9 + Math.random() * 0.2,
+                        hiddenRatingFactor: 0.9 + Math.random() * 0.2,
+                        minNPCQueue: 10,
+                        maxNPCQueue: 15
+                    },
+                    "CGI": {
+                        name: "Celestial Grading Institute",
+                        queue: [],
+                        baseProcessingTime: 20000,
+                        costMultiplier: 0.3,
+                        marketPattern: 0.05,
+                        hiddenCostFactor: 0.9 + Math.random() * 0.2,
+                        hiddenSpeedFactor: 0.9 + Math.random() * 0.2,
+                        hiddenRatingFactor: 0.9 + Math.random() * 0.2,
+                        minNPCQueue: 10,
+                        maxNPCQueue: 15
+                    },
+                    "DCB": {
+                        name: "Dominion Collectible Bureau",
+                        queue: [],
+                        baseProcessingTime: 60000,
+                        costMultiplier: 0.6,
+                        marketPattern: 0.2,
+                        hiddenCostFactor: 0.9 + Math.random() * 0.2,
+                        hiddenSpeedFactor: 0.9 + Math.random() * 0.2,
+                        hiddenRatingFactor: 0.9 + Math.random() * 0.2,
+                        minNPCQueue: 10,
+                        maxNPCQueue: 15
+                    }
+                }
+            };
+            initializeCardData();
+            updateMarketPrices();
+            saveGame();
+            updateUI();
+            selectedCardForSell = null;
+            currentRevealedCardEl.innerHTML = '';
+            gachaSummaryContentEl.innerHTML = '';
+            gachaSummaryEl.classList.add('hidden');
+            packOpeningArea.classList.add('hidden');
+            buyPackBtn.disabled = false;
+            buy10PacksBtn.disabled = false;
+            buyBoosterPackBtn.disabled = false;
+            saveLoadMessageEl.textContent = '';
+            
+            currentFilters = {
+                name: '',
+                qualities: [],
+                rarities: [],
+                minPrice: null,
+                maxPrice: null
+            };
+            currentSort = { type: null, order: null };
+            inventorySearchInput.value = '';
+            
+            renderInventory();
+        }
+
+        saveGameBtn.addEventListener('click', saveGame);
+
+        inventorySearchInput.addEventListener('input', () => {
+            currentFilters.name = inventorySearchInput.value.toLowerCase().trim();
+            renderInventory();
+        });
+
+        openFilterSortModalBtn.addEventListener('click', () => {
+            filterSortModal.classList.remove('hidden');
+            updateFilterSortModalUI();
+        });
+
+        closeFilterSortModalBtn.addEventListener('click', () => {
+            filterSortModal.classList.add('hidden');
+        });
+
+        filterSortModal.addEventListener('click', (event) => {
+            if (event.target === filterSortModal) {
+                filterSortModal.classList.add('hidden');
+            }
+        });
+
+        applyFilterSortBtn.addEventListener('click', () => {
+            currentFilters.name = modalFilterNameInput.value.toLowerCase().trim();
+
+            currentFilters.qualities = Array.from(modalFilterQualityOptionsDiv.querySelectorAll('input[type="checkbox"]:checked'))
+                                            .map(checkbox => checkbox.dataset.filterValue);
+
+            currentFilters.rarities = Array.from(modalFilterRarityOptionsDiv.querySelectorAll('input[type="checkbox"]:checked'))
+                                            .map(checkbox => checkbox.dataset.filterValue);
+
+            const minPrice = parseInt(filterMinPriceInput.value, 10);
+            const maxPrice = parseInt(filterMaxPriceInput.value, 10);
+            currentFilters.minPrice = isNaN(minPrice) ? null : minPrice;
+            currentFilters.maxPrice = isNaN(maxPrice) ? null : maxPrice;
+
+            const selectedSortOrderBtn = filterSortModal.querySelector('.sort-options button.selected');
+            const newSortOrder = selectedSortOrderBtn ? selectedSortOrderBtn.dataset.sortOrder : null;
+            currentSort = { type: newSortOrder === 'none' ? null : 'price', order: newSortOrder };
+
+            renderInventory();
+            filterSortModal.classList.add('hidden');
+            showModal("Filter & Sort Applied", "Inventory updated with selected filters and sort.");
+        });
+
+        clearAllFiltersSortBtn.addEventListener('click', () => {
+            currentFilters = {
+                name: '',
+                qualities: [],
+                rarities: [],
+                minPrice: null,
+                maxPrice: null
+            };
+            currentSort = { type: null, order: null };
+            inventorySearchInput.value = '';
+            renderInventory();
+            updateFilterSortModalUI();
+            filterSortModal.classList.add('hidden');
+            showModal("Filters & Sort Cleared", "All filters and sort options have been cleared.");
+        });
+
+        function populateFilterOptions() {
+            modalFilterQualityOptionsDiv.innerHTML = '';
+            CARD_QUALITIES.forEach(q => {
+                const label = document.createElement('label');
+                label.className = 'checkbox-label';
+                label.innerHTML = `
+                    <input type="checkbox" data-filter-value="${q.name.toLowerCase()}">
+                    <span>${q.name}</span>
+                `;
+                modalFilterQualityOptionsDiv.appendChild(label);
+            });
+
+            modalFilterRarityOptionsDiv.innerHTML = '';
+            CARD_TIERS.forEach(t => {
+                const label = document.createElement('label');
+                label.className = 'checkbox-label';
+                label.innerHTML = `
+                    <input type="checkbox" data-filter-value="${t.name.toLowerCase()}">
+                    <span>${t.name}</span>
+                `;
+                modalFilterRarityOptionsDiv.appendChild(label);
+            });
+        }
+
+        function updateFilterSortModalUI() {
+            modalFilterNameInput.value = currentFilters.name;
+
+            modalFilterQualityOptionsDiv.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                checkbox.checked = currentFilters.qualities.includes(checkbox.dataset.filterValue);
+            });
+
+            modalFilterRarityOptionsDiv.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                checkbox.checked = currentFilters.rarities.includes(checkbox.dataset.filterValue);
+            });
+
+            filterMinPriceInput.value = currentFilters.minPrice !== null ? currentFilters.minPrice : '';
+            filterMaxPriceInput.value = currentFilters.maxPrice !== null ? currentFilters.maxPrice : '';
+
+            sortOrderButtons.forEach(btn => btn.classList.remove('selected'));
+            const currentSortOrder = currentSort.type === 'price' ? currentSort.order : 'none';
+            const currentSortBtn = filterSortModal.querySelector(`button[data-sort-order="${currentSortOrder}"]`);
+            if (currentSortBtn) currentSortBtn.classList.add('selected');
+        }
+
+        sortOrderButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                sortOrderButtons.forEach(btn => btn.classList.remove('selected'));
+                button.classList.add('selected');
+            });
+        });
+
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        function switchTab(activeTabId) {
+            tabButtons.forEach(button => {
+                if (button.id === activeTabId) {
+                    button.classList.add('active');
+                    button.classList.remove('text-gray-300', 'hover:bg-gray-600');
+                    button.classList.add('bg-blue-600', 'text-white');
+                } else {
+                    button.classList.remove('active');
+                    button.classList.remove('bg-blue-600', 'text-white');
+                    button.classList.add('text-gray-300', 'hover:bg-gray-600');
+                }
+            });
+
+            tabContents.forEach(content => {
+                if (content.id === `tab-content-${activeTabId.replace('tab-', '')}`) {
+                    content.classList.remove('hidden');
+                } else {
+                    content.classList.add('hidden');
+                }
+            });
+            updateUI();
+        }
+
+        tabCollectionBtn.addEventListener('click', () => switchTab('tab-collection'));
+        tabShopBtn.addEventListener('click', () => switchTab('tab-shop'));
+        tabMarketBtn.addEventListener('click', () => switchTab('tab-market'));
+        tabGradingBtn.addEventListener('click', () => switchTab('tab-grading'));
+
+        function populateMarketManipulationOptions() {
+            manipulateTierSelect.innerHTML = '<option value="">-- Select a Rarity --</option>';
+            CARD_TIERS.forEach(tier => {
+                const option = document.createElement('option');
+                option.value = tier.name;
+                option.textContent = tier.name;
+                manipulateTierSelect.appendChild(option);
+            });
+        }
+
+        function updateManipulationCost() {
+            const selectedTierName = manipulateTierSelect.value;
+            if (selectedTierName) {
+                const tierData = CARD_TIERS.find(t => t.name === selectedTierName);
+                if (tierData) {
+                    const currentAvgPriceForTier = game.market.priceHistory[tierData.name] ? 
+                                                    game.market.priceHistory[tierData.name][game.market.priceHistory[tierData.name].length - 1]?.price || tierData.basePrice :
+                                                    tierData.basePrice;
+                    const cost = Math.floor(currentAvgPriceForTier * 0.5 * 10);
+                    manipulationCostDisplay.textContent = `Cost: ${cost.toLocaleString()} Coins`;
+                    boostMarketBtn.disabled = game.player.coins < cost;
+                    depressMarketBtn.disabled = game.player.coins < cost;
+                }
+            } else {
+                manipulationCostDisplay.textContent = `Cost: 0 Coins`;
+                boostMarketBtn.disabled = true;
+                depressMarketBtn.disabled = true;
+            }
+        }
+
+        manipulateTierSelect.addEventListener('change', updateManipulationCost);
+
+        boostMarketBtn.addEventListener('click', () => {
+            const selectedTierName = manipulateTierSelect.value;
+            if (!selectedTierName) {
+                showModal("Error", "Please select a rarity to boost.");
+                return;
+            }
+            const tierData = CARD_TIERS.find(t => t.name === selectedTierName);
+            const currentAvgPriceForTier = game.market.priceHistory[tierData.name] ? 
+                                            game.market.priceHistory[tierData.name][game.market.priceHistory[tierData.name].length - 1]?.price || tierData.basePrice :
+                                            tierData.basePrice;
+            const cost = Math.floor(currentAvgPriceForTier * 0.5 * 10);
+
+            if (game.player.coins >= cost) {
+                game.player.coins -= cost;
+                game.market.manipulationEffects[selectedTierName] = {
+                    type: 'boost',
+                    strength: 0.1,
+                    startTime: Date.now()
+                };
+                showModal("Market Boosted!", `You successfully boosted the price trend for ${selectedTierName} cards for ${cost.toLocaleString()} Coins.`);
+                updateUI();
+                saveGame();
+            } else {
+                showModal("Not Enough Coins", `You need ${cost.toLocaleString()} coins to boost ${selectedTierName} prices.`);
+            }
+        });
+
+        depressMarketBtn.addEventListener('click', () => {
+            const selectedTierName = manipulateTierSelect.value;
+            if (!selectedTierName) {
+                showModal("Error", "Please select a rarity to depress.");
+                return;
+            }
+            const tierData = CARD_TIERS.find(t => t.name === selectedTierName);
+            const currentAvgPriceForTier = game.market.priceHistory[tierData.name] ? 
+                                            game.market.priceHistory[tierData.name][game.market.priceHistory[tierData.name].length - 1]?.price || tierData.basePrice :
+                                            tierData.basePrice;
+            const cost = Math.floor(currentAvgPriceForTier * 0.5 * 10);
+
+            if (game.player.coins >= cost) {
+                game.player.coins -= cost;
+                game.market.manipulationEffects[selectedTierName] = {
+                    type: 'depress',
+                    strength: -0.1,
+                    startTime: Date.now()
+                };
+                showModal("Market Depressed!", `You successfully depressed the price trend for ${selectedTierName} cards for ${cost.toLocaleString()} Coins.`);
+                updateUI();
+                saveGame();
+            } else {
+                showModal("Not Enough Coins", `You need ${cost.toLocaleString()} coins to depress ${selectedTierName} prices.`);
+            }
+        });
+
+        function populateCardToGradeDisplay() {
+            if (selectedInventoryCardForGrading) {
+                cardToGradeDisplay.textContent = `${selectedInventoryCardForGrading.name} (${selectedInventoryCardForGrading.tier}, ${selectedInventoryCardForGrading.quality})`;
+                submitForGradingBtn.disabled = false;
+            } else {
+                cardToGradeDisplay.textContent = 'No card selected';
+                submitForGradingBtn.disabled = true;
+            }
+        }
+
+        selectCardForGradingBtn.addEventListener('click', () => {
+            showCardSelectionModal();
+        });
+
+        function showCardSelectionModal() {
+            cardSelectionList.innerHTML = '';
+            const ungradedCards = game.player.inventory.filter(card => !card.isGraded);
+
+            if (ungradedCards.length === 0) {
+                cardSelectionList.innerHTML = '<p class="text-gray-400 text-center col-span-full py-4">No ungraded cards available in your inventory.</p>';
+                confirmCardSelectionBtn.disabled = true;
+                cardSelectionModal.classList.remove('hidden');
+                return;
+            }
+
+            const groupedCards = {};
+            ungradedCards.forEach(card => {
+                const key = `${card.definitionId}-${card.quality}`;
+                if (!groupedCards[key]) {
+                    groupedCards[key] = {
+                        definitionId: card.definitionId,
+                        name: card.name,
+                        tier: card.tier,
+                        quality: card.quality,
+                        qualityMultiplier: card.qualityMultiplier,
+                        count: 0,
+                        instanceIds: []
+                    };
+                }
+                groupedCards[key].count++;
+                groupedCards[key].instanceIds.push(card.instanceId);
+            });
+
+            selectedCardInstanceIdInModal = null; // Reset selection in modal
+
+            Object.values(groupedCards).forEach(cardGroup => {
+                const cardItem = document.createElement('div');
+                cardItem.className = 'card-selection-item';
+                cardItem.dataset.instanceId = cardGroup.instanceIds[0]; // Use first instance ID for selection
+                
+                const tierData = CARD_TIERS.find(t => t.name === cardGroup.tier);
+                const qualityData = CARD_QUALITIES.find(q => q.name === cardGroup.quality);
+                const cardNameTextColor = getContrastingColor(tierData.color);
+
+                cardItem.style.backgroundColor = tierData.color;
+                cardItem.style.borderColor = qualityData.color;
+                cardItem.style.borderWidth = qualityData.borderWidth;
+                cardItem.style.borderStyle = 'solid';
+
+                cardItem.innerHTML = `
+                    <div class="card-name" style="color: ${cardNameTextColor};">${cardGroup.name}</div>
+                    <div class="card-details">
+                        <span class="text-white">${cardGroup.tier}</span> (<span style="color: ${qualityData.color};">${cardGroup.quality}</span>)
+                    </div>
+                    <div class="card-details text-black">Amount: ${cardGroup.count}</div>
+                `;
+                cardItem.addEventListener('click', () => {
+                    document.querySelectorAll('.card-selection-item').forEach(item => item.classList.remove('selected'));
+                    cardItem.classList.add('selected');
+                    selectedCardInstanceIdInModal = parseFloat(cardItem.dataset.instanceId);
+                    confirmCardSelectionBtn.disabled = false;
+                });
+                cardSelectionList.appendChild(cardItem);
+            });
+
+            confirmCardSelectionBtn.disabled = true;
+            cardSelectionModal.classList.remove('hidden');
+        }
+
+        confirmCardSelectionBtn.addEventListener('click', () => {
+            if (selectedCardInstanceIdInModal) {
+                selectedInventoryCardForGrading = game.player.inventory.find(card => card.instanceId === selectedCardInstanceIdInModal);
+                populateCardToGradeDisplay();
+                updateGradingCostDisplay();
+                cardSelectionModal.classList.add('hidden');
+            }
+        });
+
+        cancelCardSelectionBtn.addEventListener('click', () => {
+            selectedCardInstanceIdInModal = null;
+            cardSelectionModal.classList.add('hidden');
+        });
+
+        function populateGradingServiceSelect() {
+            gradingServiceSelect.innerHTML = '';
+            for (const serviceId in game.gradingServices) {
+                const service = game.gradingServices[serviceId];
+                const option = document.createElement('option');
+                option.value = serviceId;
+                option.textContent = service.name;
+                gradingServiceSelect.appendChild(option);
+            }
+        }
+
+        function updateGradingCostDisplay() {
+            const selectedServiceId = gradingServiceSelect.value;
+            const selectedKcp = gradingSpeedSelect.value;
+
+            if (!selectedInventoryCardForGrading || !selectedServiceId) {
+                gradingCostDisplay.textContent = '0 Coins';
+                submitForGradingBtn.disabled = true;
+                return;
+            }
+
+            const service = game.gradingServices[selectedServiceId];
+            const kcpOption = KCP_OPTIONS[selectedKcp];
+
+            const cardMarketValue = getCardSellPrice(selectedInventoryCardForGrading);
+            let baseCost = Math.floor(cardMarketValue * service.costMultiplier * service.hiddenCostFactor);
+            
+            // Adjust cost based on queue size: higher queue means higher cost
+            const queueSize = service.queue.length + service.minNPCQueue; // Include NPCs in queue size for cost calculation
+            const queueCostFactor = 1 + (queueSize / 50) * 0.1; // 10% increase for every 50 cards in queue
+            baseCost = Math.floor(baseCost * queueCostFactor);
+
+            baseCost = Math.floor(baseCost * (1 + (Math.random() * 2 - 1) * service.marketPattern));
+            baseCost = Math.max(1, baseCost);
+
+            const kcpCost = Math.floor(cardMarketValue * kcpOption.costPercent);
+            const totalCost = baseCost + kcpCost;
+
+            gradingCostDisplay.textContent = `${totalCost.toLocaleString()} Coins`;
+            submitForGradingBtn.disabled = game.player.coins < totalCost;
+        }
+
+        gradingServiceSelect.addEventListener('change', updateGradingCostDisplay);
+        gradingSpeedSelect.addEventListener('change', updateGradingCostDisplay);
+
+        submitForGradingBtn.addEventListener('click', () => {
+            if (!selectedInventoryCardForGrading) {
+                showModal("Error", "Please select a card to grade.");
+                return;
+            }
+
+            const selectedServiceId = gradingServiceSelect.value;
+            const selectedKcp = gradingSpeedSelect.value;
+            const service = game.gradingServices[selectedServiceId];
+            const kcpOption = KCP_OPTIONS[selectedKcp];
+
+            const cardMarketValue = getCardSellPrice(selectedInventoryCardForGrading);
+            let baseCost = Math.floor(cardMarketValue * service.costMultiplier * service.hiddenCostFactor);
+            const queueSize = service.queue.length + service.minNPCQueue;
+            const queueCostFactor = 1 + (queueSize / 50) * 0.1;
+            baseCost = Math.floor(baseCost * queueCostFactor);
+            baseCost = Math.floor(baseCost * (1 + (Math.random() * 2 - 1) * service.marketPattern));
+            baseCost = Math.max(1, baseCost);
+
+            const kcpCost = Math.floor(cardMarketValue * kcpOption.costPercent);
+            const totalCost = baseCost + kcpCost;
+
+            if (game.player.coins < totalCost) {
+                showModal("Not Enough Coins", `You need ${totalCost.toLocaleString()} coins to submit this card for grading.`);
+                return;
+            }
+
+            game.player.coins -= totalCost;
+
+            const cardIndex = game.player.inventory.findIndex(card => card.instanceId === selectedInventoryCardForGrading.instanceId);
+            if (cardIndex === -1) {
+                showModal("Error", "Selected card not found in inventory.");
+                return;
+            }
+            const cardToGrade = game.player.inventory.splice(cardIndex, 1)[0];
+
+            const processingTimePerStage = (service.baseProcessingTime * service.hiddenSpeedFactor * kcpOption.speedMultiplier) / GRADING_STAGES.length;
+            const stageCompletionTimes = [];
+            let currentTime = Date.now();
+            for (let i = 0; i < GRADING_STAGES.length; i++) {
+                currentTime += processingTimePerStage;
+                stageCompletionTimes.push(currentTime);
+            }
+
+            service.queue.push({
+                card: cardToGrade,
+                originalMarketValue: cardMarketValue,
+                serviceId: selectedServiceId,
+                isNPC: false,
+                currentStage: 0,
+                stageCompletionTimes: stageCompletionTimes
+            });
+
+            showModal("Card Submitted!", `Your ${cardToGrade.name} has been submitted to ${service.name} for grading. Cost: ${totalCost.toLocaleString()} Coins.`);
+            selectedInventoryCardForGrading = null;
+            updateUI();
+            saveGame();
+        });
+
+        function calculateGradingScore(card, originalMarketValue, serviceHiddenRatingFactor) {
+            const qualityData = CARD_QUALITIES.find(q => q.name === card.quality);
+            
+            let finalMultiplier;
+            if (card.quality === "Poor") {
+                finalMultiplier = 0.5;
+            } else {
+                let baseGradedMultiplier = 1.2 + (Math.random() * 0.8);
+                baseGradedMultiplier *= serviceHiddenRatingFactor; // Apply service's hidden rating factor
+                
+                const qualityDeviation = qualityData.multiplier - 1.0;
+                const qualityEffect = qualityDeviation * 0.6; // 60% influence
+                
+                finalMultiplier = baseGradedMultiplier + qualityEffect;
+            }
+
+            finalMultiplier = Math.max(0.5, finalMultiplier); // Ensure it doesn't go below 0.5
+
+            let gradingScore;
+            if (finalMultiplier < 1.0) {
+                gradingScore = ((finalMultiplier - 0.5) / 0.1) - 5;
+            } else {
+                gradingScore = (finalMultiplier - 1.0) / 0.1;
+            }
+            
+            gradingScore = Math.round(Math.max(-5, Math.min(10, gradingScore)));
+
+            const gradedValue = Math.floor(originalMarketValue * finalMultiplier);
+
+            return { gradedValue, gradingScore };
+        }
+
+        function processGradingQueues() {
+            const now = Date.now();
+            for (const serviceId in game.gradingServices) {
+                const service = game.gradingServices[serviceId];
+                const newQueue = [];
+                for (const item of service.queue) {
+                    if (item.isNPC) {
+                        if (now >= item.completionTime) {
+                            // NPC card completed, just remove it
+                        } else {
+                            newQueue.push(item);
+                        }
+                    } else { // Player's card
+                        if (item.currentStage < GRADING_STAGES.length && now >= item.stageCompletionTimes[item.currentStage]) {
+                            item.currentStage++;
+                        }
+                        
+                        if (item.currentStage >= GRADING_STAGES.length) {
+                            const { gradedValue, gradingScore } = calculateGradingScore(item.card, item.originalMarketValue, service.hiddenRatingFactor);
+                            item.card.isGraded = true;
+                            item.card.gradedValue = gradedValue;
+                            item.card.gradingScore = gradingScore;
+                            item.card.gradedBy = service.name;
+                            item.card.gradedTime = now;
+                            game.player.gradedCards.push(item.card);
+                        } else {
+                            newQueue.push(item);
+                        }
+                    }
+                }
+                service.queue = newQueue;
+            }
+            updateUI();
+            saveGame();
+        }
+
+        function simulateNPCQueue() {
+            for (const serviceId in game.gradingServices) {
+                const service = game.gradingServices[serviceId];
+                const currentNPCQueueSize = service.queue.filter(item => item.isNPC).length;
+                
+                // Adjust maxNPCQueue based on overall market average price
+                const currentAverageMarketPrice = calculateCurrentAverageMarketPrice();
+                const priceRatio = currentAverageMarketPrice / game.settings.initialAverageBasePrice;
+                let dynamicMaxNPCQueue = service.maxNPCQueue;
+                if (priceRatio > 1.5) { // If market is high, more NPCs
+                    dynamicMaxNPCQueue = Math.min(50, service.maxNPCQueue + Math.floor((priceRatio - 1.5) * 20));
+                } else if (priceRatio < 0.5) { // If market is low, fewer NPCs
+                     dynamicMaxNPCQueue = Math.max(5, service.minNPCQueue - Math.floor((0.5 - priceRatio) * 5));
+                }
+                dynamicMaxNPCQueue = Math.max(service.minNPCQueue, dynamicMaxNPCQueue); // Ensure it doesn't go below min
+
+                const numNPCsToAdd = Math.floor(Math.random() * 3) + 1; // Add 1-3 NPCs at a time
+
+                for (let i = 0; i < numNPCsToAdd; i++) {
+                    if (currentNPCQueueSize + service.queue.length < dynamicMaxNPCQueue) {
+                        const randomTier = CARD_TIERS[Math.floor(Math.random() * CARD_TIERS.length)];
+                        const randomQuality = CARD_QUALITIES[Math.floor(Math.random() * CARD_QUALITIES.length)];
+                        const randomCardDef = game.cardData.filter(d => d.tier === randomTier.name)[0];
+
+                        if (!randomCardDef) continue;
+
+                        const dummyCard = {
+                            instanceId: Date.now() + Math.random() + 'npc',
+                            definitionId: randomCardDef.id,
+                            name: randomCardDef.name,
+                            tier: randomTier.name,
+                            quality: randomQuality.name,
+                            qualityMultiplier: randomQuality.multiplier,
+                            isNPC: true
+                        };
+
+                        const processingTime = service.baseProcessingTime * (0.8 + Math.random() * 0.4); // +/- 20% variability
+                        const completionTime = Date.now() + processingTime;
+
+                        const stageProcessingTime = processingTime / GRADING_STAGES.length;
+                        const stageCompletionTimes = [];
+                        let currentStageTime = Date.now();
+                        for (let j = 0; j < GRADING_STAGES.length; j++) {
+                            currentStageTime += stageProcessingTime;
+                            stageCompletionTimes.push(currentStageTime);
+                        }
+
+                        service.queue.push({
+                            card: dummyCard,
+                            completionTime: completionTime,
+                            isNPC: true,
+                            currentStage: 0,
+                            stageCompletionTimes: stageCompletionTimes
+                        });
+                    }
+                }
+            }
+            updateUI();
+            saveGame();
+        }
+
+
+        function renderGradingQueues() {
+            gradingQueuesList.innerHTML = '';
+            for (const serviceId in game.gradingServices) {
+                const service = game.gradingServices[serviceId];
+                const serviceDiv = document.createElement('div');
+                serviceDiv.className = 'grading-service-card';
+                
+                let queueContent = '';
+                if (service.queue.length > 0) {
+                    const now = Date.now();
+                    service.queue.sort((a, b) => a.stageCompletionTimes[a.currentStage] - b.stageCompletionTimes[b.currentStage]);
+                    service.queue.forEach(item => {
+                        const timeLeft = Math.max(0, item.stageCompletionTimes[item.currentStage] - now);
+                        const minutes = Math.floor(timeLeft / 60000);
+                        const seconds = Math.floor((timeLeft % 60000) / 1000);
+                        const timeLeftStr = timeLeft > 0 ? `${minutes}m ${seconds}s` : 'Processing next stage...';
+                        
+                        const stageDisplay = item.currentStage < GRADING_STAGES.length ? 
+                                            `Stage ${item.currentStage + 1}/${GRADING_STAGES.length}: ${GRADING_STAGES[item.currentStage]}` :
+                                            'Ready for pickup!';
+
+                        const cardName = item.isNPC ? "NPC Card" : item.card.name;
+                        const cardQuality = item.isNPC ? "" : `(${item.card.quality})`;
+
+                        queueContent += `
+                            <div class="grading-queue-item ${item.isNPC ? 'npc-card' : ''}">
+                                <span class="font-semibold">${cardName} ${cardQuality}</span>
+                                <span class="text-sm text-gray-400">${stageDisplay}</span>
+                                <div class="w-full bg-gray-500 rounded-full h-1.5 dark:bg-gray-700">
+                                    <div class="bg-blue-600 h-1.5 rounded-full" style="width: ${((item.currentStage + (1 - (timeLeft / (item.stageCompletionTimes[item.currentStage] - (item.currentStage > 0 ? item.stageCompletionTimes[item.currentStage - 1] : item.stageCompletionTimes[0] - service.baseProcessingTime / GRADING_STAGES.length))) || 0)) / GRADING_STAGES.length) * 100}%"></div>
+                                </div>
+                                <span class="text-xs text-gray-300">${timeLeftStr}</span>
+                            </div>
+                        `;
+                    });
+                } else {
+                    queueContent = '<p class="text-gray-400 text-center">Queue is empty.</p>';
+                }
+
+                serviceDiv.innerHTML = `
+                    <h3 class="text-xl font-semibold text-white">${service.name}</h3>
+                    <p class="text-gray-400">Queue Size: ${service.queue.length}</p>
+                    <div class="bg-gray-600 p-3 rounded-md h-32 overflow-y-auto space-y-2">
+                        ${queueContent}
+                    </div>
+                `;
+                gradingQueuesList.appendChild(serviceDiv);
+            }
+        }
+
+        function renderGradedCardsForPickup() {
+            gradedCardsForPickup.innerHTML = '';
+            if (game.player.gradedCards.length === 0) {
+                gradedCardsForPickup.innerHTML = '<p class="text-gray-400 text-center col-span-full py-4">No graded cards ready for pickup.</p>';
+                return;
+            }
+
+            game.player.gradedCards.forEach(card => {
+                const tierData = CARD_TIERS.find(t => t.name === card.tier);
+                const qualityData = CARD_QUALITIES.find(q => q.name === card.quality);
+                const cardNameTextColor = getContrastingColor(tierData.color);
+
+                const scoreColor = card.gradingScore >= 8 ? 'text-green-400' :
+                                   card.gradingScore >= 5 ? 'text-blue-400' :
+                                   card.gradingScore >= 0 ? 'text-yellow-400' : 'text-red-400';
+
+                const cardItem = document.createElement('div');
+                cardItem.className = `graded-card-item ${getTierClassForEffect(card.tier)} ${getQualityClassForEffect(card.quality)}`;
+                cardItem.style.backgroundColor = tierData.color;
+                cardItem.style.borderColor = qualityData.color;
+                cardItem.style.borderWidth = qualityData.borderWidth;
+                cardItem.style.borderStyle = 'solid';
+
+                cardItem.innerHTML = `
+                    <div class="card-name text-lg font-bold" style="color: ${cardNameTextColor};">${card.name}</div>
+                    <div class="card-details text-sm">
+                        <span class="text-white">${card.tier}</span> (<span style="color: ${qualityData.color};">${card.quality}</span>)
+                    </div>
+                    <div class="card-details text-sm ${scoreColor}">Grading Score: ${card.gradingScore}/10</div>
+                    <div class="card-details text-amber-400 text-base font-semibold">Value: ${card.gradedValue.toLocaleString()} Coins</div>
+                    <div class="card-details text-gray-400 text-xs">Graded by: ${card.gradedBy}</div>
+                    <button class="pickup-graded-card-btn bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-3 rounded-md text-sm mt-2" data-instance-id="${card.instanceId}">Pick Up</button>
+                `;
+                gradedCardsForPickup.appendChild(cardItem);
+            });
+
+            document.querySelectorAll('.pickup-graded-card-btn').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const instanceId = parseFloat(event.target.dataset.instanceId);
+                    pickupGradedCard(instanceId);
+                });
+            });
+        }
+
+        function pickupGradedCard(instanceId) {
+            const cardIndex = game.player.gradedCards.findIndex(card => card.instanceId === instanceId);
+            if (cardIndex !== -1) {
+                const cardToPickup = game.player.gradedCards.splice(cardIndex, 1)[0];
+                game.player.inventory.push(cardToPickup);
+                showModal("Card Picked Up!", `You picked up your graded ${cardToPickup.name} (Score: ${cardToPickup.gradingScore}/10). Its new value is ${cardToPickup.gradedValue.toLocaleString()} Coins.`);
+                updateUI();
+                saveGame();
+            } else {
+                showModal("Error", "Graded card not found.");
+            }
+        }
+
+        function initGame() {
+            loadGame();
+            populateFilterOptions();
+            populateMarketManipulationOptions();
+            populateGradingServiceSelect();
+
+            setInterval(() => {
+                updateMarketPrices();
+                processGradingQueues();
+                simulateNPCQueue();
+            }, 10000);
+
+            document.addEventListener("click", function startBGM() {
+                if (bgm) {
+                    bgm.volume = 0.3;
+                    bgm.play().catch(e => console.error("Error playing BGM:", e));
+                } else {
+                    console.error("BGM element not found (in startBGM click handler).");
+                }
+                document.removeEventListener("click", startBGM);
+            }, {
+                once: true
+            });
+
+            switchTab('tab-collection');
+        }
+
+        document.addEventListener('DOMContentLoaded', initGame);
+    </script>
+</html>
